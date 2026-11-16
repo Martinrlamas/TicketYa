@@ -35,7 +35,7 @@ public class EventNameResolver {
 
     private String fetchName(UUID eventId) {
         try {
-            EventWire e = catalog.get().uri("/api/events/{id}", eventId).retrieve().body(EventWire.class);
+            EventWire e = catalog.get().uri("/internal/events/{id}", eventId).retrieve().body(EventWire.class);
             return e == null ? null : e.name();
         } catch (RuntimeException ex) {
             return null;

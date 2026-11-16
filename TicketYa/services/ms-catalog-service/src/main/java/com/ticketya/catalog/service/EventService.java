@@ -195,6 +195,12 @@ public class EventService {
                 e.getOrganizerId(), sectorsInfo);
     }
 
+    /** Para otros servicios (ej. ticket-service): el evento sin filtro de visibilidad, incluso cancelado. */
+    @Transactional(readOnly = true)
+    public EventResponse getAnyStatus(UUID id) {
+        return mapper.toResponse(load(id));
+    }
+
     /** Para inventory: SOLD_OUT <-> PUBLISHED. */
     @Transactional
     public InternalStatusResponse applyInventoryStatus(UUID eventId, EventStatus status) {

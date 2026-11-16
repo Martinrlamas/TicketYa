@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.ticketya.catalog.dto.request.UpdateStatusRequest;
 import com.ticketya.catalog.dto.response.InternalStatusResponse;
 import com.ticketya.catalog.dto.response.SaleInfoResponse;
+import com.ticketya.catalog.dto.response.EventResponse;
 import com.ticketya.catalog.service.EventService;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -28,6 +29,13 @@ public class InternalEventController {
 
     public InternalEventController(EventService service) {
         this.service = service;
+    }
+
+    @GetMapping("/{eventId}")
+    @Operation(summary = "Detalle de evento en cualquier estado (para ticket-service)",
+            description = "No filtra por visibilidad: sirve para mostrar el nombre de eventos cancelados. **Roles:** INTERNAL")
+    public EventResponse get(@PathVariable("eventId") UUID eventId) {
+        return service.getAnyStatus(eventId);
     }
 
     @GetMapping("/{eventId}/sale-info")
