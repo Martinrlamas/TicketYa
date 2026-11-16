@@ -1,0 +1,11 @@
+spring:
+  application:
+    name: demo-service
+  autoconfigure:
+    # spring-jdbc está en el classpath (dependencia opcional del starter) pero estas pruebas no usan base de datos.
+    exclude: org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
+ticketya:
+  platform:
+    internal-token: secret-for-tests
+    api:
+      version: 9.9.9

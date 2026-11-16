@@ -1,0 +1,1910 @@
+openapi: 3.0.3
+info:
+  title: order-service
+  version: 1.0.0
+  description: 'Saga de compra, límite por cliente, idempotencia y devoluciones.
+
+
+    Errores en `application/problem+json`. Ver catálogo de códigos en docs/05-api-endpoints.md.'
+servers:
+- url: http://localhost:8083
+  description: Acceso directo al servicio (desarrollo)
+- url: http://localhost:8080
+  description: A través del API Gateway (solo /api/**)
+paths:
+  /api/orders:
+    post:
+      tags:
+      - Compra
+      summary: Crear orden y reservar lugares (paso 1 de la compra)
+      description: 'Valida el evento (catalog), consume cuota por cliente (máx. 6 por evento, configurable), crea el hold
+        en inventory y deja la orden en PENDING_PAYMENT. Numerado: `seatIds`. General: `quantity` (se generan N ítems). Idempotente
+        por `Idempotency-Key`: mismo cuerpo → misma respuesta (200); otro cuerpo → 422.
+
+
+        **Roles:** CUSTOMER'
+      operationId: post_api_orders
+      parameters:
+      - name: Idempotency-Key
+        in: header
+        required: true
+        description: Clave única generada por el cliente (UUID). Un reintento con la misma clave devuelve el resultado original.
+        schema:
+          type: string
+        example: c1f4a7d2-9e3b-4a68-b5c1-2d7e8f90a1b3
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                eventId:
+                  type: string
+                  format: uuid
+                items:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      sectorId:
+                        type: string
+                        format: uuid
+                      seatIds:
+                        type: array
+                        items:
+                          type: string
+                          format: uuid
+            example:
+              eventId: 9b2f6c1a-4d3e-4a7b-8c5d-2e1f0a9b8c7d
+              items:
+              - sectorId: c3d4e5f6-1a2b-4c3d-8e4f-5a6b7c8d9e01
+                seatIds:
+                - e5f6a7b8-3c4d-4e5f-a06b-7c8d9e0f1a23
+                - e5f6a7b8-3c4d-4e5f-a06b-7c8d9e0f1a24
+      security:
+      - UserId: []
+        UserRole: []
+      responses:
+        '201':
+          description: Orden creada con reserva vigente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  orderId:
+                    type: string
+                    format: uuid
+                  customerId:
+                    type: string
+                    format: uuid
+                  eventId:
+                    type: string
+                    format: uuid
+                  eventStartsAt:
+                    type: string
+                    format: date-time
+                  status:
+                    type: string
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        itemId:
+                          type: string
+                          format: uuid
+                        sectorId:
+                          type: string
+                          format: uuid
+                        seatId:
+                          type: string
+                          format: uuid
+                        seatLabel:
+                          type: string
+                        unitPrice:
+                          type: number
+                          format: double
+                        currency:
+                          type: string
+                        status:
+                          type: string
+                  total:
+                    type: number
+                    format: double
+                  currency:
+                    type: string
+                  holdExpiresAt:
+                    type: string
+                    format: date-time
+                  createdAt:
+                    type: string
+                    format: date-time
+              example:
+                orderId: f6a7b8c9-4d5e-4f60-b17c-8d9e0f1a2b34
+                customerId: 2c3d4e5f-7081-4293-a4af-1a2b3c4d5e67
+                eventId: 9b2f6c1a-4d3e-4a7b-8c5d-2e1f0a9b8c7d
+                eventStartsAt: '2027-03-20T21:00:00-03:00'
+                status: PENDING_PAYMENT
+                items:
+                - itemId: a7b8c9d0-5e6f-4071-828d-9e0f1a2b3c01
+                  sectorId: c3d4e5f6-1a2b-4c3d-8e4f-5a6b7c8d9e01
+                  seatId: e5f6a7b8-3c4d-4e5f-a06b-7c8d9e0f1a23
+                  seatLabel: Platea A-5
+                  unitPrice: 45000.0
+                  currency: ARS
+                  status: ACTIVE
+                - itemId: a7b8c9d0-5e6f-4071-828d-9e0f1a2b3c02
+                  sectorId: c3d4e5f6-1a2b-4c3d-8e4f-5a6b7c8d9e01
+                  seatId: e5f6a7b8-3c4d-4e5f-a06b-7c8d9e0f1a24
+                  seatLabel: Platea A-6
+                  unitPrice: 45000.0
+                  currency: ARS
+                  status: ACTIVE
+                total: 90000.0
+                currency: ARS
+                holdExpiresAt: '2026-11-07T15:40:00-03:00'
+                createdAt: '2026-11-07T15:30:00-03:00'
+        '200':
+          description: 'Reintento idempotente: devuelve la orden original'
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  orderId:
+                    type: string
+                    format: uuid
+                  customerId:
+                    type: string
+                    format: uuid
+                  eventId:
+                    type: string
+                    format: uuid
+                  eventStartsAt:
+                    type: string
+                    format: date-time
+                  status:
+                    type: string
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        itemId:
+                          type: string
+                          format: uuid
+                        sectorId:
+                          type: string
+                          format: uuid
+                        seatId:
+                          type: string
+                          format: uuid
+                        seatLabel:
+                          type: string
+                        unitPrice:
+                          type: number
+                          format: double
+                        currency:
+                          type: string
+                        status:
+                          type: string
+                  total:
+                    type: number
+                    format: double
+                  currency:
+                    type: string
+                  holdExpiresAt:
+                    type: string
+                    format: date-time
+                  createdAt:
+                    type: string
+                    format: date-time
+              example:
+                orderId: f6a7b8c9-4d5e-4f60-b17c-8d9e0f1a2b34
+                customerId: 2c3d4e5f-7081-4293-a4af-1a2b3c4d5e67
+                eventId: 9b2f6c1a-4d3e-4a7b-8c5d-2e1f0a9b8c7d
+                eventStartsAt: '2027-03-20T21:00:00-03:00'
+                status: PENDING_PAYMENT
+                items:
+                - itemId: a7b8c9d0-5e6f-4071-828d-9e0f1a2b3c01
+                  sectorId: c3d4e5f6-1a2b-4c3d-8e4f-5a6b7c8d9e01
+                  seatId: e5f6a7b8-3c4d-4e5f-a06b-7c8d9e0f1a23
+                  seatLabel: Platea A-5
+                  unitPrice: 45000.0
+                  currency: ARS
+                  status: ACTIVE
+                - itemId: a7b8c9d0-5e6f-4071-828d-9e0f1a2b3c02
+                  sectorId: c3d4e5f6-1a2b-4c3d-8e4f-5a6b7c8d9e01
+                  seatId: e5f6a7b8-3c4d-4e5f-a06b-7c8d9e0f1a24
+                  seatLabel: Platea A-6
+                  unitPrice: 45000.0
+                  currency: ARS
+                  status: ACTIVE
+                total: 90000.0
+                currency: ARS
+                holdExpiresAt: '2026-11-07T15:40:00-03:00'
+                createdAt: '2026-11-07T15:30:00-03:00'
+        '400':
+          description: Falta Idempotency-Key o request inválido
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/idempotency-key-required
+                title: Falta Idempotency-Key
+                status: 400
+                detail: El header Idempotency-Key es obligatorio
+                code: IDEMPOTENCY_KEY_REQUIRED
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+        '401':
+          description: Falta identidad o rol inválido
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/unauthenticated
+                title: No autenticado
+                status: 401
+                detail: Falta el header X-User-Id
+                code: UNAUTHENTICATED
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+        '403':
+          description: Rol insuficiente o recurso de otro usuario
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/forbidden
+                title: Acceso denegado
+                status: 403
+                detail: El rol CUSTOMER no puede invocar este endpoint
+                code: FORBIDDEN
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+        '404':
+          description: Evento inexistente
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/not-found
+                title: No encontrado
+                status: 404
+                detail: El evento no existe
+                code: NOT_FOUND
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+        '409':
+          description: Asiento/capacidad no disponible o evento no comprable
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/seat-unavailable
+                title: Asiento no disponible
+                status: 409
+                detail: El asiento A-5 ya no está disponible
+                code: SEAT_UNAVAILABLE
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+        '422':
+          description: Límite por cliente superado o clave reutilizada con otro cuerpo
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/purchase-limit-exceeded
+                title: Límite superado
+                status: 422
+                detail: El límite es de 6 entradas por evento
+                code: PURCHASE_LIMIT_EXCEEDED
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+        '503':
+          description: Servicio dependiente no disponible
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/upstream-unavailable
+                title: Servicio no disponible
+                status: 503
+                detail: inventory-service no respondió dentro del timeout
+                code: UPSTREAM_UNAVAILABLE
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+    get:
+      tags:
+      - Compra
+      summary: Listar mis órdenes
+      description: '**Roles:** CUSTOMER'
+      operationId: get_api_orders
+      parameters:
+      - name: status
+        in: query
+        required: false
+        description: Filtra por estado
+        schema:
+          type: string
+        example: CONFIRMED
+      - name: page
+        in: query
+        required: false
+        description: Base 0
+        schema:
+          type: integer
+        example: 0
+      - name: size
+        in: query
+        required: false
+        description: Default 20, máx 100
+        schema:
+          type: integer
+        example: 20
+      security:
+      - UserId: []
+        UserRole: []
+      responses:
+        '200':
+          description: Página de órdenes del cliente (sin entradas; el QR está en el detalle)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  content:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        orderId:
+                          type: string
+                          format: uuid
+                        customerId:
+                          type: string
+                          format: uuid
+                        eventId:
+                          type: string
+                          format: uuid
+                        eventStartsAt:
+                          type: string
+                          format: date-time
+                        status:
+                          type: string
+                        items:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              itemId:
+                                type: string
+                                format: uuid
+                              sectorId:
+                                type: string
+                                format: uuid
+                              seatId:
+                                type: string
+                                format: uuid
+                              seatLabel:
+                                type: string
+                              unitPrice:
+                                type: number
+                                format: double
+                              currency:
+                                type: string
+                              status:
+                                type: string
+                        total:
+                          type: number
+                          format: double
+                        currency:
+                          type: string
+                        holdExpiresAt:
+                          type: string
+                          nullable: true
+                        createdAt:
+                          type: string
+                          format: date-time
+                        paymentId:
+                          type: string
+                          format: uuid
+                        payment:
+                          type: object
+                          properties:
+                            method:
+                              type: string
+                            last4:
+                              type: string
+                            status:
+                              type: string
+                  page:
+                    type: integer
+                  size:
+                    type: integer
+                  totalElements:
+                    type: integer
+                  totalPages:
+                    type: integer
+              example:
+                content:
+                - orderId: f6a7b8c9-4d5e-4f60-b17c-8d9e0f1a2b34
+                  customerId: 2c3d4e5f-7081-4293-a4af-1a2b3c4d5e67
+                  eventId: 9b2f6c1a-4d3e-4a7b-8c5d-2e1f0a9b8c7d
+                  eventStartsAt: '2027-03-20T21:00:00-03:00'
+                  status: CONFIRMED
+                  items:
+                  - itemId: a7b8c9d0-5e6f-4071-828d-9e0f1a2b3c01
+                    sectorId: c3d4e5f6-1a2b-4c3d-8e4f-5a6b7c8d9e01
+                    seatId: e5f6a7b8-3c4d-4e5f-a06b-7c8d9e0f1a23
+                    seatLabel: Platea A-5
+                    unitPrice: 45000.0
+                    currency: ARS
+                    status: ACTIVE
+                  - itemId: a7b8c9d0-5e6f-4071-828d-9e0f1a2b3c02
+                    sectorId: c3d4e5f6-1a2b-4c3d-8e4f-5a6b7c8d9e01
+                    seatId: e5f6a7b8-3c4d-4e5f-a06b-7c8d9e0f1a24
+                    seatLabel: Platea A-6
+                    unitPrice: 45000.0
+                    currency: ARS
+                    status: ACTIVE
+                  total: 90000.0
+                  currency: ARS
+                  holdExpiresAt: null
+                  createdAt: '2026-11-07T15:30:00-03:00'
+                  paymentId: 1b2c3d4e-6f70-4182-939e-0f1a2b3c4d56
+                  payment:
+                    method: CARD
+                    last4: '4242'
+                    status: APPROVED
+                page: 0
+                size: 20
+                totalElements: 1
+                totalPages: 1
+        '401':
+          description: Falta identidad o rol inválido
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/unauthenticated
+                title: No autenticado
+                status: 401
+                detail: Falta el header X-User-Id
+                code: UNAUTHENTICATED
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+        '403':
+          description: Rol insuficiente o recurso de otro usuario
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/forbidden
+                title: Acceso denegado
+                status: 403
+                detail: El rol CUSTOMER no puede invocar este endpoint
+                code: FORBIDDEN
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+  /api/orders/{orderId}/pay:
+    post:
+      tags:
+      - Compra
+      summary: Pagar la orden (paso 2 de la compra)
+      description: 'Cobra en payment-service, confirma el hold en inventory y emite las entradas en ticket-service. Token
+        de prueba (mock): `tok_approved`, `tok_rejected`, `tok_timeout`, `tok_flaky`. Si el pago se aprueba pero el hold ya
+        venció, se reintegra automáticamente y se responde 410.
+
+
+        **Roles:** CUSTOMER'
+      operationId: post_api_orders_orderId_pay
+      parameters:
+      - name: orderId
+        in: path
+        required: true
+        description: ID de la orden
+        schema:
+          type: string
+          format: uuid
+        example: f6a7b8c9-4d5e-4f60-b17c-8d9e0f1a2b34
+      - name: Idempotency-Key
+        in: header
+        required: true
+        description: Clave única generada por el cliente (UUID). Un reintento con la misma clave devuelve el resultado original.
+        schema:
+          type: string
+        example: c1f4a7d2-9e3b-4a68-b5c1-2d7e8f90a1b3
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                method:
+                  type: string
+                token:
+                  type: string
+                last4:
+                  type: string
+            example:
+              method: CARD
+              token: tok_approved
+              last4: '4242'
+      security:
+      - UserId: []
+        UserRole: []
+      responses:
+        '200':
+          description: Orden CONFIRMED con entradas y QR (también en reintento idempotente)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  orderId:
+                    type: string
+                    format: uuid
+                  customerId:
+                    type: string
+                    format: uuid
+                  eventId:
+                    type: string
+                    format: uuid
+                  eventStartsAt:
+                    type: string
+                    format: date-time
+                  status:
+                    type: string
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        itemId:
+                          type: string
+                          format: uuid
+                        sectorId:
+                          type: string
+                          format: uuid
+                        seatId:
+                          type: string
+                          format: uuid
+                        seatLabel:
+                          type: string
+                        unitPrice:
+                          type: number
+                          format: double
+                        currency:
+                          type: string
+                        status:
+                          type: string
+                  total:
+                    type: number
+                    format: double
+                  currency:
+                    type: string
+                  holdExpiresAt:
+                    type: string
+                    nullable: true
+                  createdAt:
+                    type: string
+                    format: date-time
+                  paymentId:
+                    type: string
+                    format: uuid
+                  payment:
+                    type: object
+                    properties:
+                      method:
+                        type: string
+                      last4:
+                        type: string
+                      status:
+                        type: string
+                  tickets:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        ticketId:
+                          type: string
+                          format: uuid
+                        orderItemId:
+                          type: string
+                          format: uuid
+                        eventId:
+                          type: string
+                          format: uuid
+                        sectorId:
+                          type: string
+                          format: uuid
+                        seatId:
+                          type: string
+                          format: uuid
+                        seatLabel:
+                          type: string
+                        qrCode:
+                          type: string
+                        status:
+                          type: string
+                        issuedAt:
+                          type: string
+                          format: date-time
+              example:
+                orderId: f6a7b8c9-4d5e-4f60-b17c-8d9e0f1a2b34
+                customerId: 2c3d4e5f-7081-4293-a4af-1a2b3c4d5e67
+                eventId: 9b2f6c1a-4d3e-4a7b-8c5d-2e1f0a9b8c7d
+                eventStartsAt: '2027-03-20T21:00:00-03:00'
+                status: CONFIRMED
+                items:
+                - itemId: a7b8c9d0-5e6f-4071-828d-9e0f1a2b3c01
+                  sectorId: c3d4e5f6-1a2b-4c3d-8e4f-5a6b7c8d9e01
+                  seatId: e5f6a7b8-3c4d-4e5f-a06b-7c8d9e0f1a23
+                  seatLabel: Platea A-5
+                  unitPrice: 45000.0
+                  currency: ARS
+                  status: ACTIVE
+                - itemId: a7b8c9d0-5e6f-4071-828d-9e0f1a2b3c02
+                  sectorId: c3d4e5f6-1a2b-4c3d-8e4f-5a6b7c8d9e01
+                  seatId: e5f6a7b8-3c4d-4e5f-a06b-7c8d9e0f1a24
+                  seatLabel: Platea A-6
+                  unitPrice: 45000.0
+                  currency: ARS
+                  status: ACTIVE
+                total: 90000.0
+                currency: ARS
+                holdExpiresAt: null
+                createdAt: '2026-11-07T15:30:00-03:00'
+                paymentId: 1b2c3d4e-6f70-4182-939e-0f1a2b3c4d56
+                payment:
+                  method: CARD
+                  last4: '4242'
+                  status: APPROVED
+                tickets:
+                - ticketId: 6a708192-b3c4-46d7-a8e3-5e6f70819201
+                  orderItemId: a7b8c9d0-5e6f-4071-828d-9e0f1a2b3c01
+                  eventId: 9b2f6c1a-4d3e-4a7b-8c5d-2e1f0a9b8c7d
+                  sectorId: c3d4e5f6-1a2b-4c3d-8e4f-5a6b7c8d9e01
+                  seatId: e5f6a7b8-3c4d-4e5f-a06b-7c8d9e0f1a23
+                  seatLabel: Platea A-5
+                  qrCode: q7Yk2mC0v3Xn8Lr1Tz5AeHb9PwUd4JfGs6OiVhNxRcM
+                  status: VALID
+                  issuedAt: '2026-11-07T15:30:00-03:00'
+                - ticketId: 6a708192-b3c4-46d7-a8e3-5e6f70819202
+                  orderItemId: a7b8c9d0-5e6f-4071-828d-9e0f1a2b3c02
+                  eventId: 9b2f6c1a-4d3e-4a7b-8c5d-2e1f0a9b8c7d
+                  sectorId: c3d4e5f6-1a2b-4c3d-8e4f-5a6b7c8d9e01
+                  seatId: e5f6a7b8-3c4d-4e5f-a06b-7c8d9e0f1a24
+                  seatLabel: Platea A-6
+                  qrCode: Zb3Rt9KpLw1Qe7NvYx0HcUj5AiOs2DmFgT8ErBnCy4V
+                  status: VALID
+                  issuedAt: '2026-11-07T15:30:00-03:00'
+        '402':
+          description: 'Pago rechazado: hold y cuota liberados, orden PAYMENT_REJECTED'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/payment-rejected
+                title: Pago rechazado
+                status: 402
+                detail: La pasarela rechazó el pago
+                code: PAYMENT_REJECTED
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+        '401':
+          description: Falta identidad o rol inválido
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/unauthenticated
+                title: No autenticado
+                status: 401
+                detail: Falta el header X-User-Id
+                code: UNAUTHENTICATED
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+        '403':
+          description: Rol insuficiente o recurso de otro usuario
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/forbidden
+                title: Acceso denegado
+                status: 403
+                detail: El rol CUSTOMER no puede invocar este endpoint
+                code: FORBIDDEN
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+        '404':
+          description: Recurso inexistente
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/not-found
+                title: No encontrado
+                status: 404
+                detail: No existe el recurso solicitado
+                code: NOT_FOUND
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+        '409':
+          description: La orden no está en PENDING_PAYMENT
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/invalid-state-transition
+                title: Estado inválido
+                status: 409
+                detail: La orden está CONFIRMED
+                code: INVALID_STATE_TRANSITION
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+        '410':
+          description: Reserva vencida (orden EXPIRED, o FAILED_REFUNDED si se había aprobado el pago)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/hold-expired
+                title: Reserva vencida
+                status: 410
+                detail: La reserva venció a las 15:40
+                code: HOLD_EXPIRED
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+        '503':
+          description: Servicio dependiente no disponible
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/upstream-unavailable
+                title: Servicio no disponible
+                status: 503
+                detail: inventory-service no respondió dentro del timeout
+                code: UPSTREAM_UNAVAILABLE
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+  /api/orders/{orderId}:
+    delete:
+      tags:
+      - Compra
+      summary: Cancelar orden pendiente
+      description: 'Solo PENDING_PAYMENT. Libera hold y cuota.
+
+
+        **Roles:** CUSTOMER'
+      operationId: delete_api_orders_orderId
+      parameters:
+      - name: orderId
+        in: path
+        required: true
+        description: ID de la orden
+        schema:
+          type: string
+          format: uuid
+        example: f6a7b8c9-4d5e-4f60-b17c-8d9e0f1a2b34
+      security:
+      - UserId: []
+        UserRole: []
+      responses:
+        '200':
+          description: Orden CANCELLED
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  orderId:
+                    type: string
+                    format: uuid
+                  customerId:
+                    type: string
+                    format: uuid
+                  eventId:
+                    type: string
+                    format: uuid
+                  eventStartsAt:
+                    type: string
+                    format: date-time
+                  status:
+                    type: string
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        itemId:
+                          type: string
+                          format: uuid
+                        sectorId:
+                          type: string
+                          format: uuid
+                        seatId:
+                          type: string
+                          format: uuid
+                        seatLabel:
+                          type: string
+                        unitPrice:
+                          type: number
+                          format: double
+                        currency:
+                          type: string
+                        status:
+                          type: string
+                  total:
+                    type: number
+                    format: double
+                  currency:
+                    type: string
+                  holdExpiresAt:
+                    type: string
+                    format: date-time
+                  createdAt:
+                    type: string
+                    format: date-time
+              example:
+                orderId: f6a7b8c9-4d5e-4f60-b17c-8d9e0f1a2b34
+                customerId: 2c3d4e5f-7081-4293-a4af-1a2b3c4d5e67
+                eventId: 9b2f6c1a-4d3e-4a7b-8c5d-2e1f0a9b8c7d
+                eventStartsAt: '2027-03-20T21:00:00-03:00'
+                status: CANCELLED
+                items:
+                - itemId: a7b8c9d0-5e6f-4071-828d-9e0f1a2b3c01
+                  sectorId: c3d4e5f6-1a2b-4c3d-8e4f-5a6b7c8d9e01
+                  seatId: e5f6a7b8-3c4d-4e5f-a06b-7c8d9e0f1a23
+                  seatLabel: Platea A-5
+                  unitPrice: 45000.0
+                  currency: ARS
+                  status: ACTIVE
+                - itemId: a7b8c9d0-5e6f-4071-828d-9e0f1a2b3c02
+                  sectorId: c3d4e5f6-1a2b-4c3d-8e4f-5a6b7c8d9e01
+                  seatId: e5f6a7b8-3c4d-4e5f-a06b-7c8d9e0f1a24
+                  seatLabel: Platea A-6
+                  unitPrice: 45000.0
+                  currency: ARS
+                  status: ACTIVE
+                total: 90000.0
+                currency: ARS
+                holdExpiresAt: '2026-11-07T15:40:00-03:00'
+                createdAt: '2026-11-07T15:30:00-03:00'
+        '401':
+          description: Falta identidad o rol inválido
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/unauthenticated
+                title: No autenticado
+                status: 401
+                detail: Falta el header X-User-Id
+                code: UNAUTHENTICATED
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+        '403':
+          description: Rol insuficiente o recurso de otro usuario
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/forbidden
+                title: Acceso denegado
+                status: 403
+                detail: El rol CUSTOMER no puede invocar este endpoint
+                code: FORBIDDEN
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+        '404':
+          description: Recurso inexistente
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/not-found
+                title: No encontrado
+                status: 404
+                detail: No existe el recurso solicitado
+                code: NOT_FOUND
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+        '409':
+          description: Transición de estado inválida
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/invalid-state-transition
+                title: Estado inválido
+                status: 409
+                detail: La operación no es válida en el estado actual
+                code: INVALID_STATE_TRANSITION
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+    get:
+      tags:
+      - Compra
+      summary: Detalle de una orden
+      description: 'El CUSTOMER solo ve sus órdenes (404 si es de otro); un ADMIN ve cualquiera. Incluye ítems con precio
+        snapshot, medio de pago y, si está CONFIRMED, las entradas con QR (si ticket-service no responde, `tickets` es null).
+
+
+        **Roles:** CUSTOMER, ADMIN'
+      operationId: get_api_orders_orderId
+      parameters:
+      - name: orderId
+        in: path
+        required: true
+        description: ID de la orden
+        schema:
+          type: string
+          format: uuid
+        example: f6a7b8c9-4d5e-4f60-b17c-8d9e0f1a2b34
+      security:
+      - UserId: []
+        UserRole: []
+      responses:
+        '200':
+          description: Detalle de la orden
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  orderId:
+                    type: string
+                    format: uuid
+                  customerId:
+                    type: string
+                    format: uuid
+                  eventId:
+                    type: string
+                    format: uuid
+                  eventStartsAt:
+                    type: string
+                    format: date-time
+                  status:
+                    type: string
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        itemId:
+                          type: string
+                          format: uuid
+                        sectorId:
+                          type: string
+                          format: uuid
+                        seatId:
+                          type: string
+                          format: uuid
+                        seatLabel:
+                          type: string
+                        unitPrice:
+                          type: number
+                          format: double
+                        currency:
+                          type: string
+                        status:
+                          type: string
+                  total:
+                    type: number
+                    format: double
+                  currency:
+                    type: string
+                  holdExpiresAt:
+                    type: string
+                    nullable: true
+                  createdAt:
+                    type: string
+                    format: date-time
+                  paymentId:
+                    type: string
+                    format: uuid
+                  payment:
+                    type: object
+                    properties:
+                      method:
+                        type: string
+                      last4:
+                        type: string
+                      status:
+                        type: string
+                  tickets:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        ticketId:
+                          type: string
+                          format: uuid
+                        orderItemId:
+                          type: string
+                          format: uuid
+                        eventId:
+                          type: string
+                          format: uuid
+                        sectorId:
+                          type: string
+                          format: uuid
+                        seatId:
+                          type: string
+                          format: uuid
+                        seatLabel:
+                          type: string
+                        qrCode:
+                          type: string
+                        status:
+                          type: string
+                        issuedAt:
+                          type: string
+                          format: date-time
+              example:
+                orderId: f6a7b8c9-4d5e-4f60-b17c-8d9e0f1a2b34
+                customerId: 2c3d4e5f-7081-4293-a4af-1a2b3c4d5e67
+                eventId: 9b2f6c1a-4d3e-4a7b-8c5d-2e1f0a9b8c7d
+                eventStartsAt: '2027-03-20T21:00:00-03:00'
+                status: CONFIRMED
+                items:
+                - itemId: a7b8c9d0-5e6f-4071-828d-9e0f1a2b3c01
+                  sectorId: c3d4e5f6-1a2b-4c3d-8e4f-5a6b7c8d9e01
+                  seatId: e5f6a7b8-3c4d-4e5f-a06b-7c8d9e0f1a23
+                  seatLabel: Platea A-5
+                  unitPrice: 45000.0
+                  currency: ARS
+                  status: ACTIVE
+                - itemId: a7b8c9d0-5e6f-4071-828d-9e0f1a2b3c02
+                  sectorId: c3d4e5f6-1a2b-4c3d-8e4f-5a6b7c8d9e01
+                  seatId: e5f6a7b8-3c4d-4e5f-a06b-7c8d9e0f1a24
+                  seatLabel: Platea A-6
+                  unitPrice: 45000.0
+                  currency: ARS
+                  status: ACTIVE
+                total: 90000.0
+                currency: ARS
+                holdExpiresAt: null
+                createdAt: '2026-11-07T15:30:00-03:00'
+                paymentId: 1b2c3d4e-6f70-4182-939e-0f1a2b3c4d56
+                payment:
+                  method: CARD
+                  last4: '4242'
+                  status: APPROVED
+                tickets:
+                - ticketId: 6a708192-b3c4-46d7-a8e3-5e6f70819201
+                  orderItemId: a7b8c9d0-5e6f-4071-828d-9e0f1a2b3c01
+                  eventId: 9b2f6c1a-4d3e-4a7b-8c5d-2e1f0a9b8c7d
+                  sectorId: c3d4e5f6-1a2b-4c3d-8e4f-5a6b7c8d9e01
+                  seatId: e5f6a7b8-3c4d-4e5f-a06b-7c8d9e0f1a23
+                  seatLabel: Platea A-5
+                  qrCode: q7Yk2mC0v3Xn8Lr1Tz5AeHb9PwUd4JfGs6OiVhNxRcM
+                  status: VALID
+                  issuedAt: '2026-11-07T15:30:00-03:00'
+                - ticketId: 6a708192-b3c4-46d7-a8e3-5e6f70819202
+                  orderItemId: a7b8c9d0-5e6f-4071-828d-9e0f1a2b3c02
+                  eventId: 9b2f6c1a-4d3e-4a7b-8c5d-2e1f0a9b8c7d
+                  sectorId: c3d4e5f6-1a2b-4c3d-8e4f-5a6b7c8d9e01
+                  seatId: e5f6a7b8-3c4d-4e5f-a06b-7c8d9e0f1a24
+                  seatLabel: Platea A-6
+                  qrCode: Zb3Rt9KpLw1Qe7NvYx0HcUj5AiOs2DmFgT8ErBnCy4V
+                  status: VALID
+                  issuedAt: '2026-11-07T15:30:00-03:00'
+        '401':
+          description: Falta identidad o rol inválido
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/unauthenticated
+                title: No autenticado
+                status: 401
+                detail: Falta el header X-User-Id
+                code: UNAUTHENTICATED
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+        '403':
+          description: Rol insuficiente o recurso de otro usuario
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/forbidden
+                title: Acceso denegado
+                status: 403
+                detail: El rol CUSTOMER no puede invocar este endpoint
+                code: FORBIDDEN
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+        '404':
+          description: Recurso inexistente
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/not-found
+                title: No encontrado
+                status: 404
+                detail: No existe el recurso solicitado
+                code: NOT_FOUND
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+  /api/orders/{orderId}/items/{itemId}/refund-requests:
+    post:
+      tags:
+      - Devoluciones
+      summary: Solicitar devolución de una entrada
+      description: 'Hasta 72 h antes del evento. Una sola solicitud activa por ítem.
+
+
+        **Roles:** CUSTOMER'
+      operationId: post_api_orders_orderId_items_itemId_refund_requests
+      parameters:
+      - name: orderId
+        in: path
+        required: true
+        description: ID de la orden
+        schema:
+          type: string
+          format: uuid
+        example: f6a7b8c9-4d5e-4f60-b17c-8d9e0f1a2b34
+      - name: itemId
+        in: path
+        required: true
+        description: ID del ítem de la orden
+        schema:
+          type: string
+          format: uuid
+        example: a7b8c9d0-5e6f-4071-828d-9e0f1a2b3c01
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+            example:
+              reason: No puedo asistir
+      security:
+      - UserId: []
+        UserRole: []
+      responses:
+        '201':
+          description: Solicitud creada en PENDING
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  refundRequestId:
+                    type: string
+                    format: uuid
+                  orderId:
+                    type: string
+                    format: uuid
+                  orderItemId:
+                    type: string
+                    format: uuid
+                  customerId:
+                    type: string
+                    format: uuid
+                  status:
+                    type: string
+                  reason:
+                    type: string
+                  createdAt:
+                    type: string
+                    format: date-time
+                  decidedBy:
+                    type: string
+                    nullable: true
+                  decidedAt:
+                    type: string
+                    nullable: true
+                  automatic:
+                    type: boolean
+                  step:
+                    type: string
+                  attempts:
+                    type: integer
+              example:
+                refundRequestId: 5f607182-a3b4-45c6-97d2-4d5e6f708190
+                orderId: f6a7b8c9-4d5e-4f60-b17c-8d9e0f1a2b34
+                orderItemId: a7b8c9d0-5e6f-4071-828d-9e0f1a2b3c01
+                customerId: 2c3d4e5f-7081-4293-a4af-1a2b3c4d5e67
+                status: PENDING
+                reason: No puedo asistir
+                createdAt: '2026-11-07T15:30:00-03:00'
+                decidedBy: null
+                decidedAt: null
+                automatic: false
+                step: NONE
+                attempts: 0
+        '401':
+          description: Falta identidad o rol inválido
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/unauthenticated
+                title: No autenticado
+                status: 401
+                detail: Falta el header X-User-Id
+                code: UNAUTHENTICATED
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+        '403':
+          description: Rol insuficiente o recurso de otro usuario
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/forbidden
+                title: Acceso denegado
+                status: 403
+                detail: El rol CUSTOMER no puede invocar este endpoint
+                code: FORBIDDEN
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+        '404':
+          description: Recurso inexistente
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/not-found
+                title: No encontrado
+                status: 404
+                detail: No existe el recurso solicitado
+                code: NOT_FOUND
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+        '409':
+          description: Ya existe una solicitud activa o el ítem no está ACTIVE
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/invalid-state-transition
+                title: Estado inválido
+                status: 409
+                detail: Ya existe una solicitud activa para el ítem
+                code: INVALID_STATE_TRANSITION
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+        '422':
+          description: Faltan menos de 72 h para el evento
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/refund-window-closed
+                title: Fuera de plazo
+                status: 422
+                detail: Las devoluciones se aceptan hasta 72 h antes del evento
+                code: REFUND_WINDOW_CLOSED
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+  /api/refund-requests/mine:
+    get:
+      tags:
+      - Devoluciones
+      summary: Listar mis solicitudes de devolución
+      description: '**Roles:** CUSTOMER'
+      operationId: get_api_refund_requests_mine
+      security:
+      - UserId: []
+        UserRole: []
+      responses:
+        '200':
+          description: Solicitudes del cliente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  content:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        refundRequestId:
+                          type: string
+                          format: uuid
+                        orderId:
+                          type: string
+                          format: uuid
+                        orderItemId:
+                          type: string
+                          format: uuid
+                        customerId:
+                          type: string
+                          format: uuid
+                        status:
+                          type: string
+                        reason:
+                          type: string
+                        createdAt:
+                          type: string
+                          format: date-time
+                        decidedBy:
+                          type: string
+                          nullable: true
+                        decidedAt:
+                          type: string
+                          nullable: true
+                        automatic:
+                          type: boolean
+                        step:
+                          type: string
+                        attempts:
+                          type: integer
+                  page:
+                    type: integer
+                  size:
+                    type: integer
+                  totalElements:
+                    type: integer
+                  totalPages:
+                    type: integer
+              example:
+                content:
+                - refundRequestId: 5f607182-a3b4-45c6-97d2-4d5e6f708190
+                  orderId: f6a7b8c9-4d5e-4f60-b17c-8d9e0f1a2b34
+                  orderItemId: a7b8c9d0-5e6f-4071-828d-9e0f1a2b3c01
+                  customerId: 2c3d4e5f-7081-4293-a4af-1a2b3c4d5e67
+                  status: PENDING
+                  reason: No puedo asistir
+                  createdAt: '2026-11-07T15:30:00-03:00'
+                  decidedBy: null
+                  decidedAt: null
+                  automatic: false
+                  step: NONE
+                  attempts: 0
+                page: 0
+                size: 20
+                totalElements: 1
+                totalPages: 1
+        '401':
+          description: Falta identidad o rol inválido
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/unauthenticated
+                title: No autenticado
+                status: 401
+                detail: Falta el header X-User-Id
+                code: UNAUTHENTICATED
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+        '403':
+          description: Rol insuficiente o recurso de otro usuario
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/forbidden
+                title: Acceso denegado
+                status: 403
+                detail: El rol CUSTOMER no puede invocar este endpoint
+                code: FORBIDDEN
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+  /api/refund-requests:
+    get:
+      tags:
+      - Devoluciones
+      summary: Listar solicitudes de devolución (backoffice)
+      description: '**Roles:** ADMIN'
+      operationId: get_api_refund_requests
+      parameters:
+      - name: status
+        in: query
+        required: false
+        description: PENDING|REJECTED|APPROVED|PROCESSING|COMPLETED|FAILED
+        schema:
+          type: string
+        example: PENDING
+      - name: page
+        in: query
+        required: false
+        description: Base 0
+        schema:
+          type: integer
+        example: 0
+      - name: size
+        in: query
+        required: false
+        description: Default 20, máx 100
+        schema:
+          type: integer
+        example: 20
+      security:
+      - UserId: []
+        UserRole: []
+      responses:
+        '200':
+          description: Solicitudes ordenadas por antigüedad
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  content:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        refundRequestId:
+                          type: string
+                          format: uuid
+                        orderId:
+                          type: string
+                          format: uuid
+                        orderItemId:
+                          type: string
+                          format: uuid
+                        customerId:
+                          type: string
+                          format: uuid
+                        status:
+                          type: string
+                        reason:
+                          type: string
+                        createdAt:
+                          type: string
+                          format: date-time
+                        decidedBy:
+                          type: string
+                          nullable: true
+                        decidedAt:
+                          type: string
+                          nullable: true
+                        automatic:
+                          type: boolean
+                        step:
+                          type: string
+                        attempts:
+                          type: integer
+                  page:
+                    type: integer
+                  size:
+                    type: integer
+                  totalElements:
+                    type: integer
+                  totalPages:
+                    type: integer
+              example:
+                content:
+                - refundRequestId: 5f607182-a3b4-45c6-97d2-4d5e6f708190
+                  orderId: f6a7b8c9-4d5e-4f60-b17c-8d9e0f1a2b34
+                  orderItemId: a7b8c9d0-5e6f-4071-828d-9e0f1a2b3c01
+                  customerId: 2c3d4e5f-7081-4293-a4af-1a2b3c4d5e67
+                  status: PENDING
+                  reason: No puedo asistir
+                  createdAt: '2026-11-07T15:30:00-03:00'
+                  decidedBy: null
+                  decidedAt: null
+                  automatic: false
+                  step: NONE
+                  attempts: 0
+                page: 0
+                size: 20
+                totalElements: 1
+                totalPages: 1
+        '401':
+          description: Falta identidad o rol inválido
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/unauthenticated
+                title: No autenticado
+                status: 401
+                detail: Falta el header X-User-Id
+                code: UNAUTHENTICATED
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+        '403':
+          description: Rol insuficiente o recurso de otro usuario
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/forbidden
+                title: Acceso denegado
+                status: 403
+                detail: El rol CUSTOMER no puede invocar este endpoint
+                code: FORBIDDEN
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+  /api/refund-requests/{refundRequestId}/approve:
+    post:
+      tags:
+      - Devoluciones
+      summary: Aprobar devolución
+      description: 'Dispara el procesamiento: invalida entrada → libera asiento → reintegra pago → libera cuota. Si un paso
+        falla queda PROCESSING y se reintenta.
+
+
+        **Roles:** ADMIN'
+      operationId: post_api_refund_requests_refundRequestId_approve
+      parameters:
+      - name: refundRequestId
+        in: path
+        required: true
+        description: ID de la solicitud
+        schema:
+          type: string
+          format: uuid
+        example: 5f607182-a3b4-45c6-97d2-4d5e6f708190
+      security:
+      - UserId: []
+        UserRole: []
+      responses:
+        '200':
+          description: Solicitud aprobada y en procesamiento
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  refundRequestId:
+                    type: string
+                    format: uuid
+                  orderId:
+                    type: string
+                    format: uuid
+                  orderItemId:
+                    type: string
+                    format: uuid
+                  customerId:
+                    type: string
+                    format: uuid
+                  status:
+                    type: string
+                  reason:
+                    type: string
+                  createdAt:
+                    type: string
+                    format: date-time
+                  decidedBy:
+                    type: string
+                    format: uuid
+                  decidedAt:
+                    type: string
+                    format: date-time
+                  automatic:
+                    type: boolean
+                  step:
+                    type: string
+                  attempts:
+                    type: integer
+              example:
+                refundRequestId: 5f607182-a3b4-45c6-97d2-4d5e6f708190
+                orderId: f6a7b8c9-4d5e-4f60-b17c-8d9e0f1a2b34
+                orderItemId: a7b8c9d0-5e6f-4071-828d-9e0f1a2b3c01
+                customerId: 2c3d4e5f-7081-4293-a4af-1a2b3c4d5e67
+                status: PROCESSING
+                reason: No puedo asistir
+                createdAt: '2026-11-07T15:30:00-03:00'
+                decidedBy: 4e5f6071-92a3-44b5-86c1-3c4d5e6f7089
+                decidedAt: '2026-11-07T15:30:00-03:00'
+                automatic: false
+                step: NONE
+                attempts: 0
+        '401':
+          description: Falta identidad o rol inválido
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/unauthenticated
+                title: No autenticado
+                status: 401
+                detail: Falta el header X-User-Id
+                code: UNAUTHENTICATED
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+        '403':
+          description: Rol insuficiente o recurso de otro usuario
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/forbidden
+                title: Acceso denegado
+                status: 403
+                detail: El rol CUSTOMER no puede invocar este endpoint
+                code: FORBIDDEN
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+        '404':
+          description: Recurso inexistente
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/not-found
+                title: No encontrado
+                status: 404
+                detail: No existe el recurso solicitado
+                code: NOT_FOUND
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+        '409':
+          description: Transición de estado inválida
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/invalid-state-transition
+                title: Estado inválido
+                status: 409
+                detail: La operación no es válida en el estado actual
+                code: INVALID_STATE_TRANSITION
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+  /api/refund-requests/{refundRequestId}/reject:
+    post:
+      tags:
+      - Devoluciones
+      summary: Rechazar devolución
+      description: '**Roles:** ADMIN'
+      operationId: post_api_refund_requests_refundRequestId_reject
+      parameters:
+      - name: refundRequestId
+        in: path
+        required: true
+        description: ID de la solicitud
+        schema:
+          type: string
+          format: uuid
+        example: 5f607182-a3b4-45c6-97d2-4d5e6f708190
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+            example:
+              reason: Fuera de política
+      security:
+      - UserId: []
+        UserRole: []
+      responses:
+        '200':
+          description: Solicitud rechazada; el ítem vuelve a ACTIVE
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  refundRequestId:
+                    type: string
+                    format: uuid
+                  orderId:
+                    type: string
+                    format: uuid
+                  orderItemId:
+                    type: string
+                    format: uuid
+                  customerId:
+                    type: string
+                    format: uuid
+                  status:
+                    type: string
+                  reason:
+                    type: string
+                  createdAt:
+                    type: string
+                    format: date-time
+                  decidedBy:
+                    type: string
+                    format: uuid
+                  decidedAt:
+                    type: string
+                    format: date-time
+                  automatic:
+                    type: boolean
+                  step:
+                    type: string
+                  attempts:
+                    type: integer
+              example:
+                refundRequestId: 5f607182-a3b4-45c6-97d2-4d5e6f708190
+                orderId: f6a7b8c9-4d5e-4f60-b17c-8d9e0f1a2b34
+                orderItemId: a7b8c9d0-5e6f-4071-828d-9e0f1a2b3c01
+                customerId: 2c3d4e5f-7081-4293-a4af-1a2b3c4d5e67
+                status: REJECTED
+                reason: No puedo asistir
+                createdAt: '2026-11-07T15:30:00-03:00'
+                decidedBy: 4e5f6071-92a3-44b5-86c1-3c4d5e6f7089
+                decidedAt: '2026-11-07T15:30:00-03:00'
+                automatic: false
+                step: NONE
+                attempts: 0
+        '401':
+          description: Falta identidad o rol inválido
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/unauthenticated
+                title: No autenticado
+                status: 401
+                detail: Falta el header X-User-Id
+                code: UNAUTHENTICATED
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+        '403':
+          description: Rol insuficiente o recurso de otro usuario
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/forbidden
+                title: Acceso denegado
+                status: 403
+                detail: El rol CUSTOMER no puede invocar este endpoint
+                code: FORBIDDEN
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+        '404':
+          description: Recurso inexistente
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/not-found
+                title: No encontrado
+                status: 404
+                detail: No existe el recurso solicitado
+                code: NOT_FOUND
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+        '409':
+          description: Transición de estado inválida
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/invalid-state-transition
+                title: Estado inválido
+                status: 409
+                detail: La operación no es válida en el estado actual
+                code: INVALID_STATE_TRANSITION
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+  /internal/events/{eventId}/cancellation:
+    post:
+      tags:
+      - Internos
+      summary: Notificar cancelación de evento (desde catalog)
+      description: 'Idempotente por eventId. Expira órdenes pendientes y procesa reintegros automáticos en segundo plano.
+
+
+        **Roles:** INTERNAL'
+      operationId: post_internal_events_eventId_cancellation
+      parameters:
+      - name: eventId
+        in: path
+        required: true
+        description: ID del evento
+        schema:
+          type: string
+          format: uuid
+        example: 9b2f6c1a-4d3e-4a7b-8c5d-2e1f0a9b8c7d
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+            example:
+              reason: Cancelado por el organizador
+      security:
+      - InternalToken: []
+      x-internal: true
+      responses:
+        '202':
+          description: Cancelación registrada; reintegros en proceso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  eventId:
+                    type: string
+                    format: uuid
+                  ordersExpired:
+                    type: integer
+                  itemsToRefund:
+                    type: integer
+              example:
+                eventId: 9b2f6c1a-4d3e-4a7b-8c5d-2e1f0a9b8c7d
+                ordersExpired: 3
+                itemsToRefund: 100
+        '200':
+          description: Cancelación ya registrada
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  eventId:
+                    type: string
+                    format: uuid
+                  ordersExpired:
+                    type: integer
+                  itemsToRefund:
+                    type: integer
+              example:
+                eventId: 9b2f6c1a-4d3e-4a7b-8c5d-2e1f0a9b8c7d
+                ordersExpired: 3
+                itemsToRefund: 100
+        '403':
+          description: Falta o es inválido X-Internal-Token
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/forbidden
+                title: Acceso denegado
+                status: 403
+                detail: X-Internal-Token ausente o inválido
+                code: FORBIDDEN
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+components:
+  securitySchemes:
+    UserId:
+      type: apiKey
+      in: header
+      name: X-User-Id
+      description: UUID del usuario (E1; en E2 se reemplaza por JWT Bearer)
+    UserRole:
+      type: apiKey
+      in: header
+      name: X-User-Role
+      description: CUSTOMER | ORGANIZER | ADMIN | ACCESS_STAFF
+    InternalToken:
+      type: apiKey
+      in: header
+      name: X-Internal-Token
+      description: Secreto compartido entre servicios
+  schemas:
+    ProblemDetail:
+      type: object
+      properties:
+        type:
+          type: string
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        code:
+          type: string
+          description: Código de negocio estable
+        correlationId:
+          type: string
+          format: uuid

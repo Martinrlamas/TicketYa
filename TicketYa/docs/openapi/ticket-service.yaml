@@ -1,0 +1,768 @@
+openapi: 3.0.3
+info:
+  title: ticket-service
+  version: 1.0.0
+  description: 'Emisión de entradas con QR único y estados.
+
+
+    Errores en `application/problem+json`. Ver catálogo de códigos en docs/05-api-endpoints.md.'
+servers:
+- url: http://localhost:8085
+  description: Acceso directo al servicio (desarrollo)
+- url: http://localhost:8080
+  description: A través del API Gateway (solo /api/**)
+paths:
+  /internal/tickets:
+    post:
+      tags:
+      - Entradas
+      summary: Emitir entradas (idempotente por orderItemId)
+      description: '**Roles:** INTERNAL'
+      operationId: post_internal_tickets
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                orderId:
+                  type: string
+                  format: uuid
+                eventId:
+                  type: string
+                  format: uuid
+                customerId:
+                  type: string
+                  format: uuid
+                items:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      orderItemId:
+                        type: string
+                        format: uuid
+                      sectorId:
+                        type: string
+                        format: uuid
+                      seatId:
+                        type: string
+                        format: uuid
+                      seatLabel:
+                        type: string
+            example:
+              orderId: f6a7b8c9-4d5e-4f60-b17c-8d9e0f1a2b34
+              eventId: 9b2f6c1a-4d3e-4a7b-8c5d-2e1f0a9b8c7d
+              customerId: 2c3d4e5f-7081-4293-a4af-1a2b3c4d5e67
+              items:
+              - orderItemId: a7b8c9d0-5e6f-4071-828d-9e0f1a2b3c01
+                sectorId: c3d4e5f6-1a2b-4c3d-8e4f-5a6b7c8d9e01
+                seatId: e5f6a7b8-3c4d-4e5f-a06b-7c8d9e0f1a23
+                seatLabel: Platea A-5
+              - orderItemId: a7b8c9d0-5e6f-4071-828d-9e0f1a2b3c02
+                sectorId: c3d4e5f6-1a2b-4c3d-8e4f-5a6b7c8d9e01
+                seatId: e5f6a7b8-3c4d-4e5f-a06b-7c8d9e0f1a24
+                seatLabel: Platea A-6
+      security:
+      - InternalToken: []
+      x-internal: true
+      responses:
+        '201':
+          description: Entradas emitidas
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tickets:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        ticketId:
+                          type: string
+                          format: uuid
+                        orderItemId:
+                          type: string
+                          format: uuid
+                        eventId:
+                          type: string
+                          format: uuid
+                        sectorId:
+                          type: string
+                          format: uuid
+                        seatId:
+                          type: string
+                          format: uuid
+                        seatLabel:
+                          type: string
+                        qrCode:
+                          type: string
+                        status:
+                          type: string
+                        issuedAt:
+                          type: string
+                          format: date-time
+              example:
+                tickets:
+                - ticketId: 6a708192-b3c4-46d7-a8e3-5e6f70819201
+                  orderItemId: a7b8c9d0-5e6f-4071-828d-9e0f1a2b3c01
+                  eventId: 9b2f6c1a-4d3e-4a7b-8c5d-2e1f0a9b8c7d
+                  sectorId: c3d4e5f6-1a2b-4c3d-8e4f-5a6b7c8d9e01
+                  seatId: e5f6a7b8-3c4d-4e5f-a06b-7c8d9e0f1a23
+                  seatLabel: Platea A-5
+                  qrCode: q7Yk2mC0v3Xn8Lr1Tz5AeHb9PwUd4JfGs6OiVhNxRcM
+                  status: VALID
+                  issuedAt: '2026-11-07T15:30:00-03:00'
+                - ticketId: 6a708192-b3c4-46d7-a8e3-5e6f70819202
+                  orderItemId: a7b8c9d0-5e6f-4071-828d-9e0f1a2b3c02
+                  eventId: 9b2f6c1a-4d3e-4a7b-8c5d-2e1f0a9b8c7d
+                  sectorId: c3d4e5f6-1a2b-4c3d-8e4f-5a6b7c8d9e01
+                  seatId: e5f6a7b8-3c4d-4e5f-a06b-7c8d9e0f1a24
+                  seatLabel: Platea A-6
+                  qrCode: Zb3Rt9KpLw1Qe7NvYx0HcUj5AiOs2DmFgT8ErBnCy4V
+                  status: VALID
+                  issuedAt: '2026-11-07T15:30:00-03:00'
+        '200':
+          description: 'Ya emitidas: devuelve las existentes'
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tickets:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        ticketId:
+                          type: string
+                          format: uuid
+                        orderItemId:
+                          type: string
+                          format: uuid
+                        eventId:
+                          type: string
+                          format: uuid
+                        sectorId:
+                          type: string
+                          format: uuid
+                        seatId:
+                          type: string
+                          format: uuid
+                        seatLabel:
+                          type: string
+                        qrCode:
+                          type: string
+                        status:
+                          type: string
+                        issuedAt:
+                          type: string
+                          format: date-time
+              example:
+                tickets:
+                - ticketId: 6a708192-b3c4-46d7-a8e3-5e6f70819201
+                  orderItemId: a7b8c9d0-5e6f-4071-828d-9e0f1a2b3c01
+                  eventId: 9b2f6c1a-4d3e-4a7b-8c5d-2e1f0a9b8c7d
+                  sectorId: c3d4e5f6-1a2b-4c3d-8e4f-5a6b7c8d9e01
+                  seatId: e5f6a7b8-3c4d-4e5f-a06b-7c8d9e0f1a23
+                  seatLabel: Platea A-5
+                  qrCode: q7Yk2mC0v3Xn8Lr1Tz5AeHb9PwUd4JfGs6OiVhNxRcM
+                  status: VALID
+                  issuedAt: '2026-11-07T15:30:00-03:00'
+                - ticketId: 6a708192-b3c4-46d7-a8e3-5e6f70819202
+                  orderItemId: a7b8c9d0-5e6f-4071-828d-9e0f1a2b3c02
+                  eventId: 9b2f6c1a-4d3e-4a7b-8c5d-2e1f0a9b8c7d
+                  sectorId: c3d4e5f6-1a2b-4c3d-8e4f-5a6b7c8d9e01
+                  seatId: e5f6a7b8-3c4d-4e5f-a06b-7c8d9e0f1a24
+                  seatLabel: Platea A-6
+                  qrCode: Zb3Rt9KpLw1Qe7NvYx0HcUj5AiOs2DmFgT8ErBnCy4V
+                  status: VALID
+                  issuedAt: '2026-11-07T15:30:00-03:00'
+        '400':
+          description: Request inválido
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/validation-error
+                title: Solicitud inválida
+                status: 400
+                detail: El campo 'name' es obligatorio
+                code: VALIDATION_ERROR
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+        '403':
+          description: Falta o es inválido X-Internal-Token
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/forbidden
+                title: Acceso denegado
+                status: 403
+                detail: X-Internal-Token ausente o inválido
+                code: FORBIDDEN
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+    get:
+      tags:
+      - Entradas
+      summary: Consultar entradas de una orden
+      description: 'Lo usa order-service para mostrar el QR en el detalle de la orden.
+
+
+        **Roles:** INTERNAL'
+      operationId: get_internal_tickets
+      parameters:
+      - name: orderId
+        in: query
+        required: true
+        description: ID de la orden
+        schema:
+          type: string
+          format: uuid
+        example: f6a7b8c9-4d5e-4f60-b17c-8d9e0f1a2b34
+      security:
+      - InternalToken: []
+      x-internal: true
+      responses:
+        '200':
+          description: Entradas de la orden (lista vacía si no hay)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tickets:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        ticketId:
+                          type: string
+                          format: uuid
+                        orderItemId:
+                          type: string
+                          format: uuid
+                        eventId:
+                          type: string
+                          format: uuid
+                        sectorId:
+                          type: string
+                          format: uuid
+                        seatId:
+                          type: string
+                          format: uuid
+                        seatLabel:
+                          type: string
+                        qrCode:
+                          type: string
+                        status:
+                          type: string
+                        issuedAt:
+                          type: string
+                          format: date-time
+              example:
+                tickets:
+                - ticketId: 6a708192-b3c4-46d7-a8e3-5e6f70819201
+                  orderItemId: a7b8c9d0-5e6f-4071-828d-9e0f1a2b3c01
+                  eventId: 9b2f6c1a-4d3e-4a7b-8c5d-2e1f0a9b8c7d
+                  sectorId: c3d4e5f6-1a2b-4c3d-8e4f-5a6b7c8d9e01
+                  seatId: e5f6a7b8-3c4d-4e5f-a06b-7c8d9e0f1a23
+                  seatLabel: Platea A-5
+                  qrCode: q7Yk2mC0v3Xn8Lr1Tz5AeHb9PwUd4JfGs6OiVhNxRcM
+                  status: VALID
+                  issuedAt: '2026-11-07T15:30:00-03:00'
+                - ticketId: 6a708192-b3c4-46d7-a8e3-5e6f70819202
+                  orderItemId: a7b8c9d0-5e6f-4071-828d-9e0f1a2b3c02
+                  eventId: 9b2f6c1a-4d3e-4a7b-8c5d-2e1f0a9b8c7d
+                  sectorId: c3d4e5f6-1a2b-4c3d-8e4f-5a6b7c8d9e01
+                  seatId: e5f6a7b8-3c4d-4e5f-a06b-7c8d9e0f1a24
+                  seatLabel: Platea A-6
+                  qrCode: Zb3Rt9KpLw1Qe7NvYx0HcUj5AiOs2DmFgT8ErBnCy4V
+                  status: VALID
+                  issuedAt: '2026-11-07T15:30:00-03:00'
+        '400':
+          description: Request inválido
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/validation-error
+                title: Solicitud inválida
+                status: 400
+                detail: El campo 'name' es obligatorio
+                code: VALIDATION_ERROR
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+        '403':
+          description: Falta o es inválido X-Internal-Token
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/forbidden
+                title: Acceso denegado
+                status: 403
+                detail: X-Internal-Token ausente o inválido
+                code: FORBIDDEN
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+  /internal/tickets/{ticketId}/invalidate:
+    post:
+      tags:
+      - Entradas
+      summary: Invalidar entrada (idempotente)
+      description: '**Roles:** INTERNAL'
+      operationId: post_internal_tickets_ticketId_invalidate
+      parameters:
+      - name: ticketId
+        in: path
+        required: true
+        description: ID de la entrada
+        schema:
+          type: string
+          format: uuid
+        example: 6a708192-b3c4-46d7-a8e3-5e6f70819201
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+            example:
+              reason: REFUNDED
+      security:
+      - InternalToken: []
+      x-internal: true
+      responses:
+        '200':
+          description: Entrada invalidada (REFUNDED o CANCELLED)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ticketId:
+                    type: string
+                    format: uuid
+                  orderItemId:
+                    type: string
+                    format: uuid
+                  eventId:
+                    type: string
+                    format: uuid
+                  sectorId:
+                    type: string
+                    format: uuid
+                  seatId:
+                    type: string
+                    format: uuid
+                  seatLabel:
+                    type: string
+                  qrCode:
+                    type: string
+                  status:
+                    type: string
+                  issuedAt:
+                    type: string
+                    format: date-time
+              example:
+                ticketId: 6a708192-b3c4-46d7-a8e3-5e6f70819201
+                orderItemId: a7b8c9d0-5e6f-4071-828d-9e0f1a2b3c01
+                eventId: 9b2f6c1a-4d3e-4a7b-8c5d-2e1f0a9b8c7d
+                sectorId: c3d4e5f6-1a2b-4c3d-8e4f-5a6b7c8d9e01
+                seatId: e5f6a7b8-3c4d-4e5f-a06b-7c8d9e0f1a23
+                seatLabel: Platea A-5
+                qrCode: q7Yk2mC0v3Xn8Lr1Tz5AeHb9PwUd4JfGs6OiVhNxRcM
+                status: REFUNDED
+                issuedAt: '2026-11-07T15:30:00-03:00'
+        '400':
+          description: Request inválido
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/validation-error
+                title: Solicitud inválida
+                status: 400
+                detail: El campo 'name' es obligatorio
+                code: VALIDATION_ERROR
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+        '403':
+          description: Falta o es inválido X-Internal-Token
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/forbidden
+                title: Acceso denegado
+                status: 403
+                detail: X-Internal-Token ausente o inválido
+                code: FORBIDDEN
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+        '404':
+          description: Recurso inexistente
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/not-found
+                title: No encontrado
+                status: 404
+                detail: No existe el recurso solicitado
+                code: NOT_FOUND
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+        '409':
+          description: La entrada ya fue usada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/invalid-state-transition
+                title: Estado inválido
+                status: 409
+                detail: La entrada está USED
+                code: INVALID_STATE_TRANSITION
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+  /internal/events/{eventId}/tickets/invalidate:
+    post:
+      tags:
+      - Entradas
+      summary: Invalidar todas las entradas de un evento (cancelación)
+      description: '**Roles:** INTERNAL'
+      operationId: post_internal_events_eventId_tickets_invalidate
+      parameters:
+      - name: eventId
+        in: path
+        required: true
+        description: ID del evento
+        schema:
+          type: string
+          format: uuid
+        example: 9b2f6c1a-4d3e-4a7b-8c5d-2e1f0a9b8c7d
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+            example:
+              reason: CANCELLED
+      security:
+      - InternalToken: []
+      x-internal: true
+      responses:
+        '200':
+          description: Cantidad de entradas invalidadas
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  eventId:
+                    type: string
+                    format: uuid
+                  invalidated:
+                    type: integer
+              example:
+                eventId: 9b2f6c1a-4d3e-4a7b-8c5d-2e1f0a9b8c7d
+                invalidated: 100
+        '403':
+          description: Falta o es inválido X-Internal-Token
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/forbidden
+                title: Acceso denegado
+                status: 403
+                detail: X-Internal-Token ausente o inválido
+                code: FORBIDDEN
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+  /api/tickets:
+    get:
+      tags:
+      - Entradas
+      summary: Listar mis entradas
+      description: '**Roles:** CUSTOMER'
+      operationId: get_api_tickets
+      parameters:
+      - name: eventId
+        in: query
+        required: false
+        description: Filtra por evento
+        schema:
+          type: string
+          format: uuid
+        example: 9b2f6c1a-4d3e-4a7b-8c5d-2e1f0a9b8c7d
+      - name: status
+        in: query
+        required: false
+        description: VALID|USED|REFUNDED|CANCELLED
+        schema:
+          type: string
+        example: VALID
+      - name: page
+        in: query
+        required: false
+        description: Base 0
+        schema:
+          type: integer
+        example: 0
+      - name: size
+        in: query
+        required: false
+        description: Default 20, máx 100
+        schema:
+          type: integer
+        example: 20
+      security:
+      - UserId: []
+        UserRole: []
+      responses:
+        '200':
+          description: Entradas del cliente con QR
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  content:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        ticketId:
+                          type: string
+                          format: uuid
+                        orderItemId:
+                          type: string
+                          format: uuid
+                        eventId:
+                          type: string
+                          format: uuid
+                        sectorId:
+                          type: string
+                          format: uuid
+                        seatId:
+                          type: string
+                          format: uuid
+                        seatLabel:
+                          type: string
+                        qrCode:
+                          type: string
+                        status:
+                          type: string
+                        issuedAt:
+                          type: string
+                          format: date-time
+                  page:
+                    type: integer
+                  size:
+                    type: integer
+                  totalElements:
+                    type: integer
+                  totalPages:
+                    type: integer
+              example:
+                content:
+                - ticketId: 6a708192-b3c4-46d7-a8e3-5e6f70819201
+                  orderItemId: a7b8c9d0-5e6f-4071-828d-9e0f1a2b3c01
+                  eventId: 9b2f6c1a-4d3e-4a7b-8c5d-2e1f0a9b8c7d
+                  sectorId: c3d4e5f6-1a2b-4c3d-8e4f-5a6b7c8d9e01
+                  seatId: e5f6a7b8-3c4d-4e5f-a06b-7c8d9e0f1a23
+                  seatLabel: Platea A-5
+                  qrCode: q7Yk2mC0v3Xn8Lr1Tz5AeHb9PwUd4JfGs6OiVhNxRcM
+                  status: VALID
+                  issuedAt: '2026-11-07T15:30:00-03:00'
+                - ticketId: 6a708192-b3c4-46d7-a8e3-5e6f70819202
+                  orderItemId: a7b8c9d0-5e6f-4071-828d-9e0f1a2b3c02
+                  eventId: 9b2f6c1a-4d3e-4a7b-8c5d-2e1f0a9b8c7d
+                  sectorId: c3d4e5f6-1a2b-4c3d-8e4f-5a6b7c8d9e01
+                  seatId: e5f6a7b8-3c4d-4e5f-a06b-7c8d9e0f1a24
+                  seatLabel: Platea A-6
+                  qrCode: Zb3Rt9KpLw1Qe7NvYx0HcUj5AiOs2DmFgT8ErBnCy4V
+                  status: VALID
+                  issuedAt: '2026-11-07T15:30:00-03:00'
+                page: 0
+                size: 20
+                totalElements: 2
+                totalPages: 1
+        '401':
+          description: Falta identidad o rol inválido
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/unauthenticated
+                title: No autenticado
+                status: 401
+                detail: Falta el header X-User-Id
+                code: UNAUTHENTICATED
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+        '403':
+          description: Rol insuficiente o recurso de otro usuario
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/forbidden
+                title: Acceso denegado
+                status: 403
+                detail: El rol CUSTOMER no puede invocar este endpoint
+                code: FORBIDDEN
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+  /api/tickets/{ticketId}:
+    get:
+      tags:
+      - Entradas
+      summary: Detalle de una entrada
+      description: 'El CUSTOMER solo accede a sus entradas (404 si es ajena).
+
+
+        **Roles:** CUSTOMER, ADMIN'
+      operationId: get_api_tickets_ticketId
+      parameters:
+      - name: ticketId
+        in: path
+        required: true
+        description: ID de la entrada
+        schema:
+          type: string
+          format: uuid
+        example: 6a708192-b3c4-46d7-a8e3-5e6f70819201
+      security:
+      - UserId: []
+        UserRole: []
+      responses:
+        '200':
+          description: Entrada
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ticketId:
+                    type: string
+                    format: uuid
+                  orderItemId:
+                    type: string
+                    format: uuid
+                  eventId:
+                    type: string
+                    format: uuid
+                  sectorId:
+                    type: string
+                    format: uuid
+                  seatId:
+                    type: string
+                    format: uuid
+                  seatLabel:
+                    type: string
+                  qrCode:
+                    type: string
+                  status:
+                    type: string
+                  issuedAt:
+                    type: string
+                    format: date-time
+              example:
+                ticketId: 6a708192-b3c4-46d7-a8e3-5e6f70819201
+                orderItemId: a7b8c9d0-5e6f-4071-828d-9e0f1a2b3c01
+                eventId: 9b2f6c1a-4d3e-4a7b-8c5d-2e1f0a9b8c7d
+                sectorId: c3d4e5f6-1a2b-4c3d-8e4f-5a6b7c8d9e01
+                seatId: e5f6a7b8-3c4d-4e5f-a06b-7c8d9e0f1a23
+                seatLabel: Platea A-5
+                qrCode: q7Yk2mC0v3Xn8Lr1Tz5AeHb9PwUd4JfGs6OiVhNxRcM
+                status: VALID
+                issuedAt: '2026-11-07T15:30:00-03:00'
+        '401':
+          description: Falta identidad o rol inválido
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/unauthenticated
+                title: No autenticado
+                status: 401
+                detail: Falta el header X-User-Id
+                code: UNAUTHENTICATED
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+        '403':
+          description: Rol insuficiente o recurso de otro usuario
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/forbidden
+                title: Acceso denegado
+                status: 403
+                detail: El rol CUSTOMER no puede invocar este endpoint
+                code: FORBIDDEN
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+        '404':
+          description: Recurso inexistente
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/not-found
+                title: No encontrado
+                status: 404
+                detail: No existe el recurso solicitado
+                code: NOT_FOUND
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+components:
+  securitySchemes:
+    UserId:
+      type: apiKey
+      in: header
+      name: X-User-Id
+      description: UUID del usuario (E1; en E2 se reemplaza por JWT Bearer)
+    UserRole:
+      type: apiKey
+      in: header
+      name: X-User-Role
+      description: CUSTOMER | ORGANIZER | ADMIN | ACCESS_STAFF
+    InternalToken:
+      type: apiKey
+      in: header
+      name: X-Internal-Token
+      description: Secreto compartido entre servicios
+  schemas:
+    ProblemDetail:
+      type: object
+      properties:
+        type:
+          type: string
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        code:
+          type: string
+          description: Código de negocio estable
+        correlationId:
+          type: string
+          format: uuid

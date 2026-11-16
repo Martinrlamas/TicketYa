@@ -1,0 +1,31 @@
+server:
+  port: 8082
+
+spring:
+  application:
+    name: inventory-service
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/inventory_db}
+    username: ${DB_USER:inventory}
+    password: ${DB_PASSWORD:inventory}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+
+inventory:
+  hold-ttl: PT10M                    # TTL por defecto de un hold (10 minutos)
+  expire-job:
+    enabled: true
+    rate-ms: 15000                   # cada 15 s
+    batch-size: 100
+
+ticketya:
+  clients:
+    catalog-url: ${CATALOG_URL:http://localhost:8081}      # timeouts: ticketya.platform.http.*
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs

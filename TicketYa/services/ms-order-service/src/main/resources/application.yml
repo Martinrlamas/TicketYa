@@ -1,0 +1,57 @@
+server:
+  port: 8083
+
+spring:
+  application:
+    name: order-service
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/order_db}
+    username: ${DB_USER:orders}
+    password: ${DB_PASSWORD:orders}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+
+order:
+  purchase-limit: 6                  # entradas por cliente y evento
+  hold-ttl-seconds: 600              # vigencia de la reserva en inventory
+  retry:
+    max-attempts: 3                  # confirm de hold y emisión de tickets
+    backoff: PT0.2S
+  jobs:
+    expire:
+      enabled: true
+      rate-ms: 30000                 # cada 30 s
+      batch-size: 100
+    reconcile:
+      enabled: true
+      rate-ms: 30000
+      min-age: PT30S                 # no tocar pagos recién iniciados
+      abandon-after: PT2M            # pago sin rastro en payment-service tras este tiempo => se abandona el intento
+  refunds:
+    window-hours: 72                 # devoluciones hasta 72 h antes del inicio del evento
+    max-attempts: 5                  # fallas transitorias antes de pasar a FAILED
+    base-backoff: PT5S               # backoff exponencial: 5 s, 10 s, 20 s ...
+    max-backoff: PT5M
+    lease: PT60S                     # tiempo que una instancia "reserva" una solicitud mientras la procesa
+    recovery-enabled: true
+    recovery-rate-ms: 5000
+    batch-size: 20
+  cancellation:
+    enabled: true
+    rate-ms: 15000
+    batch-size: 100
+
+ticketya:
+  clients:                           # servicios que order invoca (timeouts: ticketya.platform.http.*)
+    catalog-url: ${CATALOG_URL:http://localhost:8081}
+    inventory-url: ${INVENTORY_URL:http://localhost:8082}
+    payment-url: ${PAYMENT_URL:http://localhost:8084}      # el timeout de lectura (3 s) < tok_timeout del mock (10 s)
+    ticket-url: ${TICKET_URL:http://localhost:8085}
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs

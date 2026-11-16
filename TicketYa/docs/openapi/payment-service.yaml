@@ -1,0 +1,517 @@
+openapi: 3.0.3
+info:
+  title: payment-service
+  version: 1.0.0
+  description: 'Pasarela simulada, pagos y reintegros. Sin endpoints públicos.
+
+
+    Errores en `application/problem+json`. Ver catálogo de códigos en docs/05-api-endpoints.md.'
+servers:
+- url: http://localhost:8084
+  description: Acceso directo al servicio (desarrollo)
+paths:
+  /internal/payments:
+    post:
+      tags:
+      - Pagos
+      summary: Procesar pago (idempotente)
+      description: 'Un rechazo se persiste y se responde 200 con status=REJECTED (el 402 lo decide order-service). Misma clave+datos
+        → mismo resultado; misma clave+otros datos → 422.
+
+
+        **Roles:** INTERNAL'
+      operationId: post_internal_payments
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                orderId:
+                  type: string
+                  format: uuid
+                customerId:
+                  type: string
+                  format: uuid
+                amount:
+                  type: number
+                  format: double
+                currency:
+                  type: string
+                method:
+                  type: string
+                token:
+                  type: string
+                last4:
+                  type: string
+                idempotencyKey:
+                  type: string
+            example:
+              orderId: f6a7b8c9-4d5e-4f60-b17c-8d9e0f1a2b34
+              customerId: 2c3d4e5f-7081-4293-a4af-1a2b3c4d5e67
+              amount: 90000.0
+              currency: ARS
+              method: CARD
+              token: tok_approved
+              last4: '4242'
+              idempotencyKey: pay-f6a7b8c9-4d5e-4f60-b17c-8d9e0f1a2b34
+      security:
+      - InternalToken: []
+      x-internal: true
+      responses:
+        '200':
+          description: Resultado del pago (APPROVED o REJECTED)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  paymentId:
+                    type: string
+                    format: uuid
+                  orderId:
+                    type: string
+                    format: uuid
+                  customerId:
+                    type: string
+                    format: uuid
+                  amount:
+                    type: number
+                    format: double
+                  currency:
+                    type: string
+                  method:
+                    type: string
+                  last4:
+                    type: string
+                  status:
+                    type: string
+                  gatewayRef:
+                    type: string
+                  refundedAmount:
+                    type: number
+                    format: double
+                  createdAt:
+                    type: string
+                    format: date-time
+              example:
+                paymentId: 1b2c3d4e-6f70-4182-939e-0f1a2b3c4d56
+                orderId: f6a7b8c9-4d5e-4f60-b17c-8d9e0f1a2b34
+                customerId: 2c3d4e5f-7081-4293-a4af-1a2b3c4d5e67
+                amount: 90000.0
+                currency: ARS
+                method: CARD
+                last4: '4242'
+                status: APPROVED
+                gatewayRef: mock-8f3a21c4
+                refundedAmount: 0.0
+                createdAt: '2026-11-07T15:30:00-03:00'
+        '400':
+          description: Request inválido
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/validation-error
+                title: Solicitud inválida
+                status: 400
+                detail: El campo 'name' es obligatorio
+                code: VALIDATION_ERROR
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+        '403':
+          description: Falta o es inválido X-Internal-Token
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/forbidden
+                title: Acceso denegado
+                status: 403
+                detail: X-Internal-Token ausente o inválido
+                code: FORBIDDEN
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+        '422':
+          description: Clave reutilizada con datos distintos
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/idempotency-key-reused
+                title: Clave reutilizada
+                status: 422
+                detail: La clave ya se usó con otro monto u orden
+                code: IDEMPOTENCY_KEY_REUSED
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+    get:
+      tags:
+      - Pagos
+      summary: Buscar pago por orden (reconciliación)
+      description: '**Roles:** INTERNAL'
+      operationId: get_internal_payments
+      parameters:
+      - name: orderId
+        in: query
+        required: true
+        description: ID de la orden
+        schema:
+          type: string
+          format: uuid
+        example: f6a7b8c9-4d5e-4f60-b17c-8d9e0f1a2b34
+      security:
+      - InternalToken: []
+      x-internal: true
+      responses:
+        '200':
+          description: Pagos de la orden
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    paymentId:
+                      type: string
+                      format: uuid
+                    orderId:
+                      type: string
+                      format: uuid
+                    customerId:
+                      type: string
+                      format: uuid
+                    amount:
+                      type: number
+                      format: double
+                    currency:
+                      type: string
+                    method:
+                      type: string
+                    last4:
+                      type: string
+                    status:
+                      type: string
+                    gatewayRef:
+                      type: string
+                    refundedAmount:
+                      type: number
+                      format: double
+                    createdAt:
+                      type: string
+                      format: date-time
+              example:
+              - paymentId: 1b2c3d4e-6f70-4182-939e-0f1a2b3c4d56
+                orderId: f6a7b8c9-4d5e-4f60-b17c-8d9e0f1a2b34
+                customerId: 2c3d4e5f-7081-4293-a4af-1a2b3c4d5e67
+                amount: 90000.0
+                currency: ARS
+                method: CARD
+                last4: '4242'
+                status: APPROVED
+                gatewayRef: mock-8f3a21c4
+                refundedAmount: 0.0
+                createdAt: '2026-11-07T15:30:00-03:00'
+        '400':
+          description: Request inválido
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/validation-error
+                title: Solicitud inválida
+                status: 400
+                detail: El campo 'name' es obligatorio
+                code: VALIDATION_ERROR
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+        '403':
+          description: Falta o es inválido X-Internal-Token
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/forbidden
+                title: Acceso denegado
+                status: 403
+                detail: X-Internal-Token ausente o inválido
+                code: FORBIDDEN
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+  /internal/payments/{paymentId}:
+    get:
+      tags:
+      - Pagos
+      summary: Consultar pago
+      description: '**Roles:** INTERNAL'
+      operationId: get_internal_payments_paymentId
+      parameters:
+      - name: paymentId
+        in: path
+        required: true
+        description: ID del pago
+        schema:
+          type: string
+          format: uuid
+        example: 1b2c3d4e-6f70-4182-939e-0f1a2b3c4d56
+      security:
+      - InternalToken: []
+      x-internal: true
+      responses:
+        '200':
+          description: Pago
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  paymentId:
+                    type: string
+                    format: uuid
+                  orderId:
+                    type: string
+                    format: uuid
+                  customerId:
+                    type: string
+                    format: uuid
+                  amount:
+                    type: number
+                    format: double
+                  currency:
+                    type: string
+                  method:
+                    type: string
+                  last4:
+                    type: string
+                  status:
+                    type: string
+                  gatewayRef:
+                    type: string
+                  refundedAmount:
+                    type: number
+                    format: double
+                  createdAt:
+                    type: string
+                    format: date-time
+              example:
+                paymentId: 1b2c3d4e-6f70-4182-939e-0f1a2b3c4d56
+                orderId: f6a7b8c9-4d5e-4f60-b17c-8d9e0f1a2b34
+                customerId: 2c3d4e5f-7081-4293-a4af-1a2b3c4d5e67
+                amount: 90000.0
+                currency: ARS
+                method: CARD
+                last4: '4242'
+                status: APPROVED
+                gatewayRef: mock-8f3a21c4
+                refundedAmount: 0.0
+                createdAt: '2026-11-07T15:30:00-03:00'
+        '403':
+          description: Falta o es inválido X-Internal-Token
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/forbidden
+                title: Acceso denegado
+                status: 403
+                detail: X-Internal-Token ausente o inválido
+                code: FORBIDDEN
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+        '404':
+          description: Recurso inexistente
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/not-found
+                title: No encontrado
+                status: 404
+                detail: No existe el recurso solicitado
+                code: NOT_FOUND
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+  /internal/payments/{paymentId}/refunds:
+    post:
+      tags:
+      - Pagos
+      summary: Reintegrar total o parcialmente (idempotente)
+      description: 'La suma de reintegros no puede superar lo pagado. Solo pagos APPROVED.
+
+
+        **Roles:** INTERNAL'
+      operationId: post_internal_payments_paymentId_refunds
+      parameters:
+      - name: paymentId
+        in: path
+        required: true
+        description: ID del pago
+        schema:
+          type: string
+          format: uuid
+        example: 1b2c3d4e-6f70-4182-939e-0f1a2b3c4d56
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                amount:
+                  type: number
+                  format: double
+                reason:
+                  type: string
+                idempotencyKey:
+                  type: string
+            example:
+              amount: 45000.0
+              reason: REFUND_REQUEST
+              idempotencyKey: refund-5f607182-a3b4-45c6-97d2-4d5e6f708190
+      security:
+      - InternalToken: []
+      x-internal: true
+      responses:
+        '201':
+          description: Reintegro registrado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  refundId:
+                    type: string
+                    format: uuid
+                  paymentId:
+                    type: string
+                    format: uuid
+                  amount:
+                    type: number
+                    format: double
+                  status:
+                    type: string
+                  createdAt:
+                    type: string
+                    format: date-time
+              example:
+                refundId: 70819203-c4d5-47e8-b9f4-6f7081920314
+                paymentId: 1b2c3d4e-6f70-4182-939e-0f1a2b3c4d56
+                amount: 45000.0
+                status: APPROVED
+                createdAt: '2026-11-07T15:30:00-03:00'
+        '200':
+          description: 'Reintento idempotente: devuelve el reintegro original'
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  refundId:
+                    type: string
+                    format: uuid
+                  paymentId:
+                    type: string
+                    format: uuid
+                  amount:
+                    type: number
+                    format: double
+                  status:
+                    type: string
+                  createdAt:
+                    type: string
+                    format: date-time
+              example:
+                refundId: 70819203-c4d5-47e8-b9f4-6f7081920314
+                paymentId: 1b2c3d4e-6f70-4182-939e-0f1a2b3c4d56
+                amount: 45000.0
+                status: APPROVED
+                createdAt: '2026-11-07T15:30:00-03:00'
+        '409':
+          description: Pago no aprobado
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/invalid-state-transition
+                title: Estado inválido
+                status: 409
+                detail: El pago está REJECTED
+                code: INVALID_STATE_TRANSITION
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+        '422':
+          description: Excede el monto pagado
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/validation-error
+                title: Reintegro excedido
+                status: 422
+                detail: El monto supera lo pendiente de reintegrar
+                code: VALIDATION_ERROR
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+        '403':
+          description: Falta o es inválido X-Internal-Token
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/forbidden
+                title: Acceso denegado
+                status: 403
+                detail: X-Internal-Token ausente o inválido
+                code: FORBIDDEN
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+        '404':
+          description: Recurso inexistente
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/not-found
+                title: No encontrado
+                status: 404
+                detail: No existe el recurso solicitado
+                code: NOT_FOUND
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+components:
+  securitySchemes:
+    UserId:
+      type: apiKey
+      in: header
+      name: X-User-Id
+      description: UUID del usuario (E1; en E2 se reemplaza por JWT Bearer)
+    UserRole:
+      type: apiKey
+      in: header
+      name: X-User-Role
+      description: CUSTOMER | ORGANIZER | ADMIN | ACCESS_STAFF
+    InternalToken:
+      type: apiKey
+      in: header
+      name: X-Internal-Token
+      description: Secreto compartido entre servicios
+  schemas:
+    ProblemDetail:
+      type: object
+      properties:
+        type:
+          type: string
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        code:
+          type: string
+          description: Código de negocio estable
+        correlationId:
+          type: string
+          format: uuid

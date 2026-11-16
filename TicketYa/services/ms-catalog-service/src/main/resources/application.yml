@@ -1,0 +1,23 @@
+server:
+  port: 8081
+  error.include-message: never
+
+spring:
+  application.name: catalog-service
+  profiles.active: local
+  jackson.serialization.write-dates-as-timestamps: false
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/catalog_db}
+    username: ${DB_USER:catalog}
+    password: ${DB_PASSWORD:catalog}
+  jpa:
+    open-in-view: false                                  # nada de lazy fuera de la transacción
+    hibernate.ddl-auto: validate                         # el esquema lo manda Flyway
+    properties.hibernate.default_batch_fetch_size: 50    # evita N+1 sin fetch join de colecciones
+
+ticketya:
+  catalog.zone: America/Argentina/Buenos_Aires           # zona para dateFrom/dateTo
+  clients:
+    inventory-url: ${INVENTORY_URL:http://localhost:8082}
+    order-url: ${ORDER_URL:http://localhost:8083}
+  jobs.finish-events-ms: 60000

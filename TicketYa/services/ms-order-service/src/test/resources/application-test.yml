@@ -1,0 +1,13 @@
+order:
+  jobs:
+    expire:
+      enabled: false
+    reconcile:
+      enabled: false
+  retry:
+    backoff: PT0.001S
+  refunds:
+    recovery-enabled: false
+    base-backoff: PT0.001S
+  cancellation:
+    enabled: false

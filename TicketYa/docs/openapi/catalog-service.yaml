@@ -1,0 +1,2274 @@
+openapi: 3.0.3
+info:
+  title: catalog-service
+  version: 1.0.0
+  description: 'Lugares, sectores, eventos, precios, ciclo de vida y búsqueda.
+
+
+    Errores en `application/problem+json`. Ver catálogo de códigos en docs/05-api-endpoints.md.'
+servers:
+- url: http://localhost:8081
+  description: Acceso directo al servicio (desarrollo)
+- url: http://localhost:8080
+  description: A través del API Gateway (solo /api/**)
+paths:
+  /api/venues:
+    post:
+      tags:
+      - Lugares
+      summary: Crear lugar
+      description: 'Crea un lugar (estadio, teatro, sala) sin sectores. Los sectores se agregan luego.
+
+
+        **Roles:** ADMIN, ORGANIZER'
+      operationId: post_api_venues
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                address:
+                  type: string
+                city:
+                  type: string
+                latitude:
+                  type: number
+                  format: double
+                longitude:
+                  type: number
+                  format: double
+            example:
+              name: Estadio Municipal
+              address: Av. España 1200
+              city: Tandil
+              latitude: -37.3217
+              longitude: -59.1332
+      security:
+      - UserId: []
+        UserRole: []
+      responses:
+        '201':
+          description: Lugar creado. Header Location con la URL del recurso.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  name:
+                    type: string
+                  address:
+                    type: string
+                  city:
+                    type: string
+                  latitude:
+                    type: number
+                    format: double
+                  longitude:
+                    type: number
+                    format: double
+                  sectors:
+                    type: array
+                    items: {}
+              example:
+                id: 5a8e1d2c-7b3f-4c9a-a1e6-0d4b7c2f9e10
+                name: Estadio Municipal
+                address: Av. España 1200
+                city: Tandil
+                latitude: -37.3217
+                longitude: -59.1332
+                sectors: []
+        '400':
+          description: Request inválido
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/validation-error
+                title: Solicitud inválida
+                status: 400
+                detail: El campo 'name' es obligatorio
+                code: VALIDATION_ERROR
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+        '401':
+          description: Falta identidad o rol inválido
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/unauthenticated
+                title: No autenticado
+                status: 401
+                detail: Falta el header X-User-Id
+                code: UNAUTHENTICATED
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+        '403':
+          description: Rol insuficiente o recurso de otro usuario
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/forbidden
+                title: Acceso denegado
+                status: 403
+                detail: El rol CUSTOMER no puede invocar este endpoint
+                code: FORBIDDEN
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+  /api/venues/{venueId}:
+    get:
+      tags:
+      - Lugares
+      summary: Consultar lugar con sectores
+      description: 'Endpoint público.
+
+
+        **Roles:** PUBLIC'
+      operationId: get_api_venues_venueId
+      parameters:
+      - name: venueId
+        in: path
+        required: true
+        description: ID del lugar
+        schema:
+          type: string
+          format: uuid
+        example: 5a8e1d2c-7b3f-4c9a-a1e6-0d4b7c2f9e10
+      security:
+      - {}
+      - UserId: []
+        UserRole: []
+      responses:
+        '200':
+          description: Lugar con sus sectores
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  name:
+                    type: string
+                  address:
+                    type: string
+                  city:
+                    type: string
+                  latitude:
+                    type: number
+                    format: double
+                  longitude:
+                    type: number
+                    format: double
+                  sectors:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          format: uuid
+                        name:
+                          type: string
+                        type:
+                          type: string
+                        capacity:
+                          type: integer
+                        rows:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              rowLabel:
+                                type: string
+                              seatCount:
+                                type: integer
+              example:
+                id: 5a8e1d2c-7b3f-4c9a-a1e6-0d4b7c2f9e10
+                name: Estadio Municipal
+                address: Av. España 1200
+                city: Tandil
+                latitude: -37.3217
+                longitude: -59.1332
+                sectors:
+                - id: c3d4e5f6-1a2b-4c3d-8e4f-5a6b7c8d9e01
+                  name: Platea
+                  type: NUMBERED
+                  capacity: 40
+                  rows:
+                  - rowLabel: A
+                    seatCount: 20
+                  - rowLabel: B
+                    seatCount: 20
+                - id: d4e5f6a7-2b3c-4d4e-9f5a-6b7c8d9e0f12
+                  name: Campo
+                  type: GENERAL
+                  capacity: 5000
+                  rows: []
+        '404':
+          description: Recurso inexistente
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/not-found
+                title: No encontrado
+                status: 404
+                detail: No existe el recurso solicitado
+                code: NOT_FOUND
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+  /api/venues/{venueId}/sectors:
+    post:
+      tags:
+      - Lugares
+      summary: Agregar sector a un lugar
+      description: 'NUMBERED exige `rows` (≥1 fila con seatCount>0) y NO admite `capacity`. GENERAL exige `capacity>0` y NO
+        admite `rows`.
+
+
+        **Roles:** ADMIN, ORGANIZER'
+      operationId: post_api_venues_venueId_sectors
+      parameters:
+      - name: venueId
+        in: path
+        required: true
+        description: ID del lugar
+        schema:
+          type: string
+          format: uuid
+        example: 5a8e1d2c-7b3f-4c9a-a1e6-0d4b7c2f9e10
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                type:
+                  type: string
+                rows:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      rowLabel:
+                        type: string
+                      seatCount:
+                        type: integer
+            example:
+              name: Platea
+              type: NUMBERED
+              rows:
+              - rowLabel: A
+                seatCount: 20
+              - rowLabel: B
+                seatCount: 20
+      security:
+      - UserId: []
+        UserRole: []
+      responses:
+        '201':
+          description: Sector creado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  name:
+                    type: string
+                  type:
+                    type: string
+                  capacity:
+                    type: integer
+                  rows:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        rowLabel:
+                          type: string
+                        seatCount:
+                          type: integer
+              example:
+                id: c3d4e5f6-1a2b-4c3d-8e4f-5a6b7c8d9e01
+                name: Platea
+                type: NUMBERED
+                capacity: 40
+                rows:
+                - rowLabel: A
+                  seatCount: 20
+                - rowLabel: B
+                  seatCount: 20
+        '400':
+          description: Request inválido
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/validation-error
+                title: Solicitud inválida
+                status: 400
+                detail: El campo 'name' es obligatorio
+                code: VALIDATION_ERROR
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+        '401':
+          description: Falta identidad o rol inválido
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/unauthenticated
+                title: No autenticado
+                status: 401
+                detail: Falta el header X-User-Id
+                code: UNAUTHENTICATED
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+        '403':
+          description: Rol insuficiente o recurso de otro usuario
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/forbidden
+                title: Acceso denegado
+                status: 403
+                detail: El rol CUSTOMER no puede invocar este endpoint
+                code: FORBIDDEN
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+        '404':
+          description: Recurso inexistente
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/not-found
+                title: No encontrado
+                status: 404
+                detail: No existe el recurso solicitado
+                code: NOT_FOUND
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+  /api/events:
+    post:
+      tags:
+      - Eventos
+      summary: Crear evento (borrador)
+      description: 'El evento queda en DRAFT y asociado al organizador (X-User-Id). `startsAt` debe ser futura.
+
+
+        **Roles:** ORGANIZER'
+      operationId: post_api_events
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                type:
+                  type: string
+                venueId:
+                  type: string
+                  format: uuid
+                startsAt:
+                  type: string
+                  format: date-time
+                participants:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      name:
+                        type: string
+                      role:
+                        type: string
+            example:
+              name: Divididos en Tandil
+              description: Gira 2027
+              type: CONCERT
+              venueId: 5a8e1d2c-7b3f-4c9a-a1e6-0d4b7c2f9e10
+              startsAt: '2027-03-20T21:00:00-03:00'
+              participants:
+              - name: Divididos
+                role: ARTIST
+      security:
+      - UserId: []
+        UserRole: []
+      responses:
+        '201':
+          description: Evento creado en DRAFT
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  name:
+                    type: string
+                  description:
+                    type: string
+                  type:
+                    type: string
+                  organizerId:
+                    type: string
+                    format: uuid
+                  venueId:
+                    type: string
+                    format: uuid
+                  city:
+                    type: string
+                  startsAt:
+                    type: string
+                    format: date-time
+                  status:
+                    type: string
+                  participants:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                        role:
+                          type: string
+                  prices:
+                    type: array
+                    items: {}
+                  minPrice:
+                    type: string
+                    nullable: true
+                  createdAt:
+                    type: string
+                    format: date-time
+              example:
+                id: 9b2f6c1a-4d3e-4a7b-8c5d-2e1f0a9b8c7d
+                name: Divididos en Tandil
+                description: Gira 2027
+                type: CONCERT
+                organizerId: 3d4e5f60-8192-43a4-b5b0-2b3c4d5e6f78
+                venueId: 5a8e1d2c-7b3f-4c9a-a1e6-0d4b7c2f9e10
+                city: Tandil
+                startsAt: '2027-03-20T21:00:00-03:00'
+                status: DRAFT
+                participants:
+                - name: Divididos
+                  role: ARTIST
+                prices: []
+                minPrice: null
+                createdAt: '2026-11-07T15:30:00-03:00'
+        '400':
+          description: Request inválido
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/validation-error
+                title: Solicitud inválida
+                status: 400
+                detail: El campo 'name' es obligatorio
+                code: VALIDATION_ERROR
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+        '401':
+          description: Falta identidad o rol inválido
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/unauthenticated
+                title: No autenticado
+                status: 401
+                detail: Falta el header X-User-Id
+                code: UNAUTHENTICATED
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+        '403':
+          description: Rol insuficiente o recurso de otro usuario
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/forbidden
+                title: Acceso denegado
+                status: 403
+                detail: El rol CUSTOMER no puede invocar este endpoint
+                code: FORBIDDEN
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+        '404':
+          description: Recurso inexistente
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/not-found
+                title: No encontrado
+                status: 404
+                detail: No existe el recurso solicitado
+                code: NOT_FOUND
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+    get:
+      tags:
+      - Búsqueda
+      summary: Buscar eventos
+      description: 'Búsqueda multicriterio (AND). Solo devuelve PUBLISHED y SOLD_OUT. `sort=relevance` usa `q`; sin `q` equivale
+        a fecha ascendente.
+
+
+        **Roles:** PUBLIC'
+      operationId: get_api_events
+      parameters:
+      - name: type
+        in: query
+        required: false
+        description: CONCERT|THEATER|SPORT|CONFERENCE|FESTIVAL|OTHER
+        schema:
+          type: string
+        example: CONCERT
+      - name: organizerId
+        in: query
+        required: false
+        description: ID del organizador
+        schema:
+          type: string
+          format: uuid
+        example: 3d4e5f60-8192-43a4-b5b0-2b3c4d5e6f78
+      - name: participant
+        in: query
+        required: false
+        description: Nombre del participante (sin distinguir mayúsculas/acentos)
+        schema:
+          type: string
+        example: Divididos
+      - name: city
+        in: query
+        required: false
+        description: Ciudad del lugar
+        schema:
+          type: string
+        example: Tandil
+      - name: dateFrom
+        in: query
+        required: false
+        description: Fecha mínima inclusive (yyyy-MM-dd)
+        schema:
+          type: string
+          format: date
+        example: '2027-01-01'
+      - name: dateTo
+        in: query
+        required: false
+        description: Fecha máxima inclusive (yyyy-MM-dd)
+        schema:
+          type: string
+          format: date
+        example: '2027-12-31'
+      - name: q
+        in: query
+        required: false
+        description: Texto libre (nombre, participantes, descripción)
+        schema:
+          type: string
+        example: rock
+      - name: sort
+        in: query
+        required: false
+        description: date | price | relevance (default date)
+        schema:
+          type: string
+        example: price
+      - name: order
+        in: query
+        required: false
+        description: asc | desc (default asc)
+        schema:
+          type: string
+        example: asc
+      - name: page
+        in: query
+        required: false
+        description: Base 0
+        schema:
+          type: integer
+        example: 0
+      - name: size
+        in: query
+        required: false
+        description: Default 20, máx 100
+        schema:
+          type: integer
+        example: 20
+      security:
+      - {}
+      - UserId: []
+        UserRole: []
+      responses:
+        '200':
+          description: Página de resultados
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  content:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          format: uuid
+                        name:
+                          type: string
+                        description:
+                          type: string
+                        type:
+                          type: string
+                        organizerId:
+                          type: string
+                          format: uuid
+                        venueId:
+                          type: string
+                          format: uuid
+                        city:
+                          type: string
+                        startsAt:
+                          type: string
+                          format: date-time
+                        status:
+                          type: string
+                        participants:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              name:
+                                type: string
+                              role:
+                                type: string
+                        prices:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              sectorId:
+                                type: string
+                                format: uuid
+                              sectorName:
+                                type: string
+                              price:
+                                type: number
+                                format: double
+                              currency:
+                                type: string
+                        minPrice:
+                          type: number
+                          format: double
+                        createdAt:
+                          type: string
+                          format: date-time
+                  page:
+                    type: integer
+                  size:
+                    type: integer
+                  totalElements:
+                    type: integer
+                  totalPages:
+                    type: integer
+              example:
+                content:
+                - id: 9b2f6c1a-4d3e-4a7b-8c5d-2e1f0a9b8c7d
+                  name: Divididos en Tandil
+                  description: Gira 2027
+                  type: CONCERT
+                  organizerId: 3d4e5f60-8192-43a4-b5b0-2b3c4d5e6f78
+                  venueId: 5a8e1d2c-7b3f-4c9a-a1e6-0d4b7c2f9e10
+                  city: Tandil
+                  startsAt: '2027-03-20T21:00:00-03:00'
+                  status: PUBLISHED
+                  participants:
+                  - name: Divididos
+                    role: ARTIST
+                  prices:
+                  - sectorId: c3d4e5f6-1a2b-4c3d-8e4f-5a6b7c8d9e01
+                    sectorName: Platea
+                    price: 45000.0
+                    currency: ARS
+                  - sectorId: d4e5f6a7-2b3c-4d4e-9f5a-6b7c8d9e0f12
+                    sectorName: Campo
+                    price: 30000.0
+                    currency: ARS
+                  minPrice: 30000.0
+                  createdAt: '2026-11-07T15:30:00-03:00'
+                page: 0
+                size: 20
+                totalElements: 1
+                totalPages: 1
+        '400':
+          description: Request inválido
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/validation-error
+                title: Solicitud inválida
+                status: 400
+                detail: El campo 'name' es obligatorio
+                code: VALIDATION_ERROR
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+  /api/events/mine:
+    get:
+      tags:
+      - Eventos
+      summary: Listar mis eventos (incluye borradores)
+      description: '**Roles:** ORGANIZER'
+      operationId: get_api_events_mine
+      parameters:
+      - name: status
+        in: query
+        required: false
+        description: DRAFT|PUBLISHED|SOLD_OUT|SUSPENDED|CANCELLED|FINISHED
+        schema:
+          type: string
+        example: DRAFT
+      - name: page
+        in: query
+        required: false
+        description: Base 0 (default 0)
+        schema:
+          type: integer
+        example: 0
+      - name: size
+        in: query
+        required: false
+        description: Default 20, máx 100
+        schema:
+          type: integer
+        example: 20
+      security:
+      - UserId: []
+        UserRole: []
+      responses:
+        '200':
+          description: Página de eventos del organizador
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  content:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          format: uuid
+                        name:
+                          type: string
+                        description:
+                          type: string
+                        type:
+                          type: string
+                        organizerId:
+                          type: string
+                          format: uuid
+                        venueId:
+                          type: string
+                          format: uuid
+                        city:
+                          type: string
+                        startsAt:
+                          type: string
+                          format: date-time
+                        status:
+                          type: string
+                        participants:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              name:
+                                type: string
+                              role:
+                                type: string
+                        prices:
+                          type: array
+                          items: {}
+                        minPrice:
+                          type: string
+                          nullable: true
+                        createdAt:
+                          type: string
+                          format: date-time
+                  page:
+                    type: integer
+                  size:
+                    type: integer
+                  totalElements:
+                    type: integer
+                  totalPages:
+                    type: integer
+              example:
+                content:
+                - id: 9b2f6c1a-4d3e-4a7b-8c5d-2e1f0a9b8c7d
+                  name: Divididos en Tandil
+                  description: Gira 2027
+                  type: CONCERT
+                  organizerId: 3d4e5f60-8192-43a4-b5b0-2b3c4d5e6f78
+                  venueId: 5a8e1d2c-7b3f-4c9a-a1e6-0d4b7c2f9e10
+                  city: Tandil
+                  startsAt: '2027-03-20T21:00:00-03:00'
+                  status: DRAFT
+                  participants:
+                  - name: Divididos
+                    role: ARTIST
+                  prices: []
+                  minPrice: null
+                  createdAt: '2026-11-07T15:30:00-03:00'
+                page: 0
+                size: 20
+                totalElements: 1
+                totalPages: 1
+        '401':
+          description: Falta identidad o rol inválido
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/unauthenticated
+                title: No autenticado
+                status: 401
+                detail: Falta el header X-User-Id
+                code: UNAUTHENTICATED
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+        '403':
+          description: Rol insuficiente o recurso de otro usuario
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/forbidden
+                title: Acceso denegado
+                status: 403
+                detail: El rol CUSTOMER no puede invocar este endpoint
+                code: FORBIDDEN
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+  /api/events/{eventId}:
+    get:
+      tags:
+      - Eventos
+      summary: Detalle de evento
+      description: 'Eventos PUBLISHED/SOLD_OUT son públicos. Los demás estados solo los ve el organizador dueño o un ADMIN;
+        para el resto responde 404. No incluye disponibilidad.
+
+
+        **Roles:** PUBLIC'
+      operationId: get_api_events_eventId
+      parameters:
+      - name: eventId
+        in: path
+        required: true
+        description: ID del evento
+        schema:
+          type: string
+          format: uuid
+        example: 9b2f6c1a-4d3e-4a7b-8c5d-2e1f0a9b8c7d
+      security:
+      - {}
+      - UserId: []
+        UserRole: []
+      responses:
+        '200':
+          description: Detalle del evento con precios por sector
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  name:
+                    type: string
+                  description:
+                    type: string
+                  type:
+                    type: string
+                  organizerId:
+                    type: string
+                    format: uuid
+                  venueId:
+                    type: string
+                    format: uuid
+                  city:
+                    type: string
+                  startsAt:
+                    type: string
+                    format: date-time
+                  status:
+                    type: string
+                  participants:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                        role:
+                          type: string
+                  prices:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        sectorId:
+                          type: string
+                          format: uuid
+                        sectorName:
+                          type: string
+                        price:
+                          type: number
+                          format: double
+                        currency:
+                          type: string
+                  minPrice:
+                    type: number
+                    format: double
+                  createdAt:
+                    type: string
+                    format: date-time
+              example:
+                id: 9b2f6c1a-4d3e-4a7b-8c5d-2e1f0a9b8c7d
+                name: Divididos en Tandil
+                description: Gira 2027
+                type: CONCERT
+                organizerId: 3d4e5f60-8192-43a4-b5b0-2b3c4d5e6f78
+                venueId: 5a8e1d2c-7b3f-4c9a-a1e6-0d4b7c2f9e10
+                city: Tandil
+                startsAt: '2027-03-20T21:00:00-03:00'
+                status: PUBLISHED
+                participants:
+                - name: Divididos
+                  role: ARTIST
+                prices:
+                - sectorId: c3d4e5f6-1a2b-4c3d-8e4f-5a6b7c8d9e01
+                  sectorName: Platea
+                  price: 45000.0
+                  currency: ARS
+                - sectorId: d4e5f6a7-2b3c-4d4e-9f5a-6b7c8d9e0f12
+                  sectorName: Campo
+                  price: 30000.0
+                  currency: ARS
+                minPrice: 30000.0
+                createdAt: '2026-11-07T15:30:00-03:00'
+        '404':
+          description: Recurso inexistente
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/not-found
+                title: No encontrado
+                status: 404
+                detail: No existe el recurso solicitado
+                code: NOT_FOUND
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+    put:
+      tags:
+      - Eventos
+      summary: Modificar evento en borrador
+      description: 'Solo el dueño y solo en DRAFT.
+
+
+        **Roles:** ORGANIZER'
+      operationId: put_api_events_eventId
+      parameters:
+      - name: eventId
+        in: path
+        required: true
+        description: ID del evento
+        schema:
+          type: string
+          format: uuid
+        example: 9b2f6c1a-4d3e-4a7b-8c5d-2e1f0a9b8c7d
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                type:
+                  type: string
+                venueId:
+                  type: string
+                  format: uuid
+                startsAt:
+                  type: string
+                  format: date-time
+                participants:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      name:
+                        type: string
+                      role:
+                        type: string
+            example:
+              name: Divididos en Tandil - Fecha 1
+              description: Gira 2027
+              type: CONCERT
+              venueId: 5a8e1d2c-7b3f-4c9a-a1e6-0d4b7c2f9e10
+              startsAt: '2027-03-20T21:00:00-03:00'
+              participants:
+              - name: Divididos
+                role: ARTIST
+      security:
+      - UserId: []
+        UserRole: []
+      responses:
+        '200':
+          description: Evento actualizado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  name:
+                    type: string
+                  description:
+                    type: string
+                  type:
+                    type: string
+                  organizerId:
+                    type: string
+                    format: uuid
+                  venueId:
+                    type: string
+                    format: uuid
+                  city:
+                    type: string
+                  startsAt:
+                    type: string
+                    format: date-time
+                  status:
+                    type: string
+                  participants:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                        role:
+                          type: string
+                  prices:
+                    type: array
+                    items: {}
+                  minPrice:
+                    type: string
+                    nullable: true
+                  createdAt:
+                    type: string
+                    format: date-time
+              example:
+                id: 9b2f6c1a-4d3e-4a7b-8c5d-2e1f0a9b8c7d
+                name: Divididos en Tandil
+                description: Gira 2027
+                type: CONCERT
+                organizerId: 3d4e5f60-8192-43a4-b5b0-2b3c4d5e6f78
+                venueId: 5a8e1d2c-7b3f-4c9a-a1e6-0d4b7c2f9e10
+                city: Tandil
+                startsAt: '2027-03-20T21:00:00-03:00'
+                status: DRAFT
+                participants:
+                - name: Divididos
+                  role: ARTIST
+                prices: []
+                minPrice: null
+                createdAt: '2026-11-07T15:30:00-03:00'
+        '400':
+          description: Request inválido
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/validation-error
+                title: Solicitud inválida
+                status: 400
+                detail: El campo 'name' es obligatorio
+                code: VALIDATION_ERROR
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+        '401':
+          description: Falta identidad o rol inválido
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/unauthenticated
+                title: No autenticado
+                status: 401
+                detail: Falta el header X-User-Id
+                code: UNAUTHENTICATED
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+        '403':
+          description: Rol insuficiente o recurso de otro usuario
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/forbidden
+                title: Acceso denegado
+                status: 403
+                detail: El rol CUSTOMER no puede invocar este endpoint
+                code: FORBIDDEN
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+        '404':
+          description: Recurso inexistente
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/not-found
+                title: No encontrado
+                status: 404
+                detail: No existe el recurso solicitado
+                code: NOT_FOUND
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+        '409':
+          description: Transición de estado inválida
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/invalid-state-transition
+                title: Estado inválido
+                status: 409
+                detail: La operación no es válida en el estado actual
+                code: INVALID_STATE_TRANSITION
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+  /api/events/{eventId}/sector-prices:
+    put:
+      tags:
+      - Eventos
+      summary: Definir precios por sector
+      description: 'Reemplaza el conjunto de precios. Solo DRAFT y solo el dueño. Precios > 0 y sectores del lugar del evento.
+
+
+        **Roles:** ORGANIZER'
+      operationId: put_api_events_eventId_sector_prices
+      parameters:
+      - name: eventId
+        in: path
+        required: true
+        description: ID del evento
+        schema:
+          type: string
+          format: uuid
+        example: 9b2f6c1a-4d3e-4a7b-8c5d-2e1f0a9b8c7d
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                prices:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      sectorId:
+                        type: string
+                        format: uuid
+                      price:
+                        type: number
+                        format: double
+                      currency:
+                        type: string
+            example:
+              prices:
+              - sectorId: c3d4e5f6-1a2b-4c3d-8e4f-5a6b7c8d9e01
+                price: 45000.0
+                currency: ARS
+              - sectorId: d4e5f6a7-2b3c-4d4e-9f5a-6b7c8d9e0f12
+                price: 30000.0
+                currency: ARS
+      security:
+      - UserId: []
+        UserRole: []
+      responses:
+        '200':
+          description: Precios guardados
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  name:
+                    type: string
+                  description:
+                    type: string
+                  type:
+                    type: string
+                  organizerId:
+                    type: string
+                    format: uuid
+                  venueId:
+                    type: string
+                    format: uuid
+                  city:
+                    type: string
+                  startsAt:
+                    type: string
+                    format: date-time
+                  status:
+                    type: string
+                  participants:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                        role:
+                          type: string
+                  prices:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        sectorId:
+                          type: string
+                          format: uuid
+                        sectorName:
+                          type: string
+                        price:
+                          type: number
+                          format: double
+                        currency:
+                          type: string
+                  minPrice:
+                    type: number
+                    format: double
+                  createdAt:
+                    type: string
+                    format: date-time
+              example:
+                id: 9b2f6c1a-4d3e-4a7b-8c5d-2e1f0a9b8c7d
+                name: Divididos en Tandil
+                description: Gira 2027
+                type: CONCERT
+                organizerId: 3d4e5f60-8192-43a4-b5b0-2b3c4d5e6f78
+                venueId: 5a8e1d2c-7b3f-4c9a-a1e6-0d4b7c2f9e10
+                city: Tandil
+                startsAt: '2027-03-20T21:00:00-03:00'
+                status: PUBLISHED
+                participants:
+                - name: Divididos
+                  role: ARTIST
+                prices:
+                - sectorId: c3d4e5f6-1a2b-4c3d-8e4f-5a6b7c8d9e01
+                  sectorName: Platea
+                  price: 45000.0
+                  currency: ARS
+                - sectorId: d4e5f6a7-2b3c-4d4e-9f5a-6b7c8d9e0f12
+                  sectorName: Campo
+                  price: 30000.0
+                  currency: ARS
+                minPrice: 30000.0
+                createdAt: '2026-11-07T15:30:00-03:00'
+        '400':
+          description: Request inválido
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/validation-error
+                title: Solicitud inválida
+                status: 400
+                detail: El campo 'name' es obligatorio
+                code: VALIDATION_ERROR
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+        '401':
+          description: Falta identidad o rol inválido
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/unauthenticated
+                title: No autenticado
+                status: 401
+                detail: Falta el header X-User-Id
+                code: UNAUTHENTICATED
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+        '403':
+          description: Rol insuficiente o recurso de otro usuario
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/forbidden
+                title: Acceso denegado
+                status: 403
+                detail: El rol CUSTOMER no puede invocar este endpoint
+                code: FORBIDDEN
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+        '404':
+          description: Recurso inexistente
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/not-found
+                title: No encontrado
+                status: 404
+                detail: No existe el recurso solicitado
+                code: NOT_FOUND
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+        '409':
+          description: Transición de estado inválida
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/invalid-state-transition
+                title: Estado inválido
+                status: 409
+                detail: La operación no es válida en el estado actual
+                code: INVALID_STATE_TRANSITION
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+  /api/events/{eventId}/publish:
+    post:
+      tags:
+      - Eventos
+      summary: Publicar evento
+      description: 'Requiere ≥1 sector con precio y fecha futura. Inicializa el inventario en inventory-service antes de pasar
+        a PUBLISHED.
+
+
+        **Roles:** ORGANIZER'
+      operationId: post_api_events_eventId_publish
+      parameters:
+      - name: eventId
+        in: path
+        required: true
+        description: ID del evento
+        schema:
+          type: string
+          format: uuid
+        example: 9b2f6c1a-4d3e-4a7b-8c5d-2e1f0a9b8c7d
+      security:
+      - UserId: []
+        UserRole: []
+      responses:
+        '200':
+          description: Evento publicado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  name:
+                    type: string
+                  description:
+                    type: string
+                  type:
+                    type: string
+                  organizerId:
+                    type: string
+                    format: uuid
+                  venueId:
+                    type: string
+                    format: uuid
+                  city:
+                    type: string
+                  startsAt:
+                    type: string
+                    format: date-time
+                  status:
+                    type: string
+                  participants:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                        role:
+                          type: string
+                  prices:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        sectorId:
+                          type: string
+                          format: uuid
+                        sectorName:
+                          type: string
+                        price:
+                          type: number
+                          format: double
+                        currency:
+                          type: string
+                  minPrice:
+                    type: number
+                    format: double
+                  createdAt:
+                    type: string
+                    format: date-time
+              example:
+                id: 9b2f6c1a-4d3e-4a7b-8c5d-2e1f0a9b8c7d
+                name: Divididos en Tandil
+                description: Gira 2027
+                type: CONCERT
+                organizerId: 3d4e5f60-8192-43a4-b5b0-2b3c4d5e6f78
+                venueId: 5a8e1d2c-7b3f-4c9a-a1e6-0d4b7c2f9e10
+                city: Tandil
+                startsAt: '2027-03-20T21:00:00-03:00'
+                status: PUBLISHED
+                participants:
+                - name: Divididos
+                  role: ARTIST
+                prices:
+                - sectorId: c3d4e5f6-1a2b-4c3d-8e4f-5a6b7c8d9e01
+                  sectorName: Platea
+                  price: 45000.0
+                  currency: ARS
+                - sectorId: d4e5f6a7-2b3c-4d4e-9f5a-6b7c8d9e0f12
+                  sectorName: Campo
+                  price: 30000.0
+                  currency: ARS
+                minPrice: 30000.0
+                createdAt: '2026-11-07T15:30:00-03:00'
+        '401':
+          description: Falta identidad o rol inválido
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/unauthenticated
+                title: No autenticado
+                status: 401
+                detail: Falta el header X-User-Id
+                code: UNAUTHENTICATED
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+        '403':
+          description: Rol insuficiente o recurso de otro usuario
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/forbidden
+                title: Acceso denegado
+                status: 403
+                detail: El rol CUSTOMER no puede invocar este endpoint
+                code: FORBIDDEN
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+        '404':
+          description: Recurso inexistente
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/not-found
+                title: No encontrado
+                status: 404
+                detail: No existe el recurso solicitado
+                code: NOT_FOUND
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+        '409':
+          description: Sin precios o estado inválido
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/invalid-state-transition
+                title: Estado inválido
+                status: 409
+                detail: El evento no tiene sectores con precio
+                code: INVALID_STATE_TRANSITION
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+        '503':
+          description: Servicio dependiente no disponible
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/upstream-unavailable
+                title: Servicio no disponible
+                status: 503
+                detail: inventory-service no respondió dentro del timeout
+                code: UPSTREAM_UNAVAILABLE
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+  /api/events/{eventId}/suspend:
+    post:
+      tags:
+      - Eventos
+      summary: Suspender evento
+      description: 'Suspende un evento PUBLISHED o SOLD_OUT.
+
+
+        **Roles:** ADMIN'
+      operationId: post_api_events_eventId_suspend
+      parameters:
+      - name: eventId
+        in: path
+        required: true
+        description: ID del evento
+        schema:
+          type: string
+          format: uuid
+        example: 9b2f6c1a-4d3e-4a7b-8c5d-2e1f0a9b8c7d
+      security:
+      - UserId: []
+        UserRole: []
+      responses:
+        '200':
+          description: Evento actualizado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  name:
+                    type: string
+                  description:
+                    type: string
+                  type:
+                    type: string
+                  organizerId:
+                    type: string
+                    format: uuid
+                  venueId:
+                    type: string
+                    format: uuid
+                  city:
+                    type: string
+                  startsAt:
+                    type: string
+                    format: date-time
+                  status:
+                    type: string
+                  participants:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                        role:
+                          type: string
+                  prices:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        sectorId:
+                          type: string
+                          format: uuid
+                        sectorName:
+                          type: string
+                        price:
+                          type: number
+                          format: double
+                        currency:
+                          type: string
+                  minPrice:
+                    type: number
+                    format: double
+                  createdAt:
+                    type: string
+                    format: date-time
+              example:
+                id: 9b2f6c1a-4d3e-4a7b-8c5d-2e1f0a9b8c7d
+                name: Divididos en Tandil
+                description: Gira 2027
+                type: CONCERT
+                organizerId: 3d4e5f60-8192-43a4-b5b0-2b3c4d5e6f78
+                venueId: 5a8e1d2c-7b3f-4c9a-a1e6-0d4b7c2f9e10
+                city: Tandil
+                startsAt: '2027-03-20T21:00:00-03:00'
+                status: SUSPENDED
+                participants:
+                - name: Divididos
+                  role: ARTIST
+                prices:
+                - sectorId: c3d4e5f6-1a2b-4c3d-8e4f-5a6b7c8d9e01
+                  sectorName: Platea
+                  price: 45000.0
+                  currency: ARS
+                - sectorId: d4e5f6a7-2b3c-4d4e-9f5a-6b7c8d9e0f12
+                  sectorName: Campo
+                  price: 30000.0
+                  currency: ARS
+                minPrice: 30000.0
+                createdAt: '2026-11-07T15:30:00-03:00'
+        '401':
+          description: Falta identidad o rol inválido
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/unauthenticated
+                title: No autenticado
+                status: 401
+                detail: Falta el header X-User-Id
+                code: UNAUTHENTICATED
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+        '403':
+          description: Rol insuficiente o recurso de otro usuario
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/forbidden
+                title: Acceso denegado
+                status: 403
+                detail: El rol CUSTOMER no puede invocar este endpoint
+                code: FORBIDDEN
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+        '404':
+          description: Recurso inexistente
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/not-found
+                title: No encontrado
+                status: 404
+                detail: No existe el recurso solicitado
+                code: NOT_FOUND
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+        '409':
+          description: Transición de estado inválida
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/invalid-state-transition
+                title: Estado inválido
+                status: 409
+                detail: La operación no es válida en el estado actual
+                code: INVALID_STATE_TRANSITION
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+  /api/events/{eventId}/resume:
+    post:
+      tags:
+      - Eventos
+      summary: Reactivar evento
+      description: 'Reactiva un evento SUSPENDED.
+
+
+        **Roles:** ADMIN'
+      operationId: post_api_events_eventId_resume
+      parameters:
+      - name: eventId
+        in: path
+        required: true
+        description: ID del evento
+        schema:
+          type: string
+          format: uuid
+        example: 9b2f6c1a-4d3e-4a7b-8c5d-2e1f0a9b8c7d
+      security:
+      - UserId: []
+        UserRole: []
+      responses:
+        '200':
+          description: Evento actualizado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  name:
+                    type: string
+                  description:
+                    type: string
+                  type:
+                    type: string
+                  organizerId:
+                    type: string
+                    format: uuid
+                  venueId:
+                    type: string
+                    format: uuid
+                  city:
+                    type: string
+                  startsAt:
+                    type: string
+                    format: date-time
+                  status:
+                    type: string
+                  participants:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                        role:
+                          type: string
+                  prices:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        sectorId:
+                          type: string
+                          format: uuid
+                        sectorName:
+                          type: string
+                        price:
+                          type: number
+                          format: double
+                        currency:
+                          type: string
+                  minPrice:
+                    type: number
+                    format: double
+                  createdAt:
+                    type: string
+                    format: date-time
+              example:
+                id: 9b2f6c1a-4d3e-4a7b-8c5d-2e1f0a9b8c7d
+                name: Divididos en Tandil
+                description: Gira 2027
+                type: CONCERT
+                organizerId: 3d4e5f60-8192-43a4-b5b0-2b3c4d5e6f78
+                venueId: 5a8e1d2c-7b3f-4c9a-a1e6-0d4b7c2f9e10
+                city: Tandil
+                startsAt: '2027-03-20T21:00:00-03:00'
+                status: PUBLISHED
+                participants:
+                - name: Divididos
+                  role: ARTIST
+                prices:
+                - sectorId: c3d4e5f6-1a2b-4c3d-8e4f-5a6b7c8d9e01
+                  sectorName: Platea
+                  price: 45000.0
+                  currency: ARS
+                - sectorId: d4e5f6a7-2b3c-4d4e-9f5a-6b7c8d9e0f12
+                  sectorName: Campo
+                  price: 30000.0
+                  currency: ARS
+                minPrice: 30000.0
+                createdAt: '2026-11-07T15:30:00-03:00'
+        '401':
+          description: Falta identidad o rol inválido
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/unauthenticated
+                title: No autenticado
+                status: 401
+                detail: Falta el header X-User-Id
+                code: UNAUTHENTICATED
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+        '403':
+          description: Rol insuficiente o recurso de otro usuario
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/forbidden
+                title: Acceso denegado
+                status: 403
+                detail: El rol CUSTOMER no puede invocar este endpoint
+                code: FORBIDDEN
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+        '404':
+          description: Recurso inexistente
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/not-found
+                title: No encontrado
+                status: 404
+                detail: No existe el recurso solicitado
+                code: NOT_FOUND
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+        '409':
+          description: Transición de estado inválida
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/invalid-state-transition
+                title: Estado inválido
+                status: 409
+                detail: La operación no es válida en el estado actual
+                code: INVALID_STATE_TRANSITION
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+  /api/events/{eventId}/cancel:
+    post:
+      tags:
+      - Eventos
+      summary: Cancelar evento
+      description: 'Cancela un evento (DRAFT, PUBLISHED, SOLD_OUT o SUSPENDED) y dispara los reintegros en order-service.
+
+
+        **Roles:** ADMIN'
+      operationId: post_api_events_eventId_cancel
+      parameters:
+      - name: eventId
+        in: path
+        required: true
+        description: ID del evento
+        schema:
+          type: string
+          format: uuid
+        example: 9b2f6c1a-4d3e-4a7b-8c5d-2e1f0a9b8c7d
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+            example:
+              reason: Motivo de la cancelación (opcional)
+      security:
+      - UserId: []
+        UserRole: []
+      responses:
+        '200':
+          description: Evento actualizado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  name:
+                    type: string
+                  description:
+                    type: string
+                  type:
+                    type: string
+                  organizerId:
+                    type: string
+                    format: uuid
+                  venueId:
+                    type: string
+                    format: uuid
+                  city:
+                    type: string
+                  startsAt:
+                    type: string
+                    format: date-time
+                  status:
+                    type: string
+                  participants:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                        role:
+                          type: string
+                  prices:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        sectorId:
+                          type: string
+                          format: uuid
+                        sectorName:
+                          type: string
+                        price:
+                          type: number
+                          format: double
+                        currency:
+                          type: string
+                  minPrice:
+                    type: number
+                    format: double
+                  createdAt:
+                    type: string
+                    format: date-time
+              example:
+                id: 9b2f6c1a-4d3e-4a7b-8c5d-2e1f0a9b8c7d
+                name: Divididos en Tandil
+                description: Gira 2027
+                type: CONCERT
+                organizerId: 3d4e5f60-8192-43a4-b5b0-2b3c4d5e6f78
+                venueId: 5a8e1d2c-7b3f-4c9a-a1e6-0d4b7c2f9e10
+                city: Tandil
+                startsAt: '2027-03-20T21:00:00-03:00'
+                status: CANCELLED
+                participants:
+                - name: Divididos
+                  role: ARTIST
+                prices:
+                - sectorId: c3d4e5f6-1a2b-4c3d-8e4f-5a6b7c8d9e01
+                  sectorName: Platea
+                  price: 45000.0
+                  currency: ARS
+                - sectorId: d4e5f6a7-2b3c-4d4e-9f5a-6b7c8d9e0f12
+                  sectorName: Campo
+                  price: 30000.0
+                  currency: ARS
+                minPrice: 30000.0
+                createdAt: '2026-11-07T15:30:00-03:00'
+        '401':
+          description: Falta identidad o rol inválido
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/unauthenticated
+                title: No autenticado
+                status: 401
+                detail: Falta el header X-User-Id
+                code: UNAUTHENTICATED
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+        '403':
+          description: Rol insuficiente o recurso de otro usuario
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/forbidden
+                title: Acceso denegado
+                status: 403
+                detail: El rol CUSTOMER no puede invocar este endpoint
+                code: FORBIDDEN
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+        '404':
+          description: Recurso inexistente
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/not-found
+                title: No encontrado
+                status: 404
+                detail: No existe el recurso solicitado
+                code: NOT_FOUND
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+        '409':
+          description: Transición de estado inválida
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/invalid-state-transition
+                title: Estado inválido
+                status: 409
+                detail: La operación no es válida en el estado actual
+                code: INVALID_STATE_TRANSITION
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+  /internal/events/{eventId}/sale-info:
+    get:
+      tags:
+      - Internos
+      summary: Información de venta (para order-service)
+      description: 'Devuelve si el evento es comprable y los precios/tipos por sector.
+
+
+        **Roles:** INTERNAL'
+      operationId: get_internal_events_eventId_sale_info
+      parameters:
+      - name: eventId
+        in: path
+        required: true
+        description: ID del evento
+        schema:
+          type: string
+          format: uuid
+        example: 9b2f6c1a-4d3e-4a7b-8c5d-2e1f0a9b8c7d
+      security:
+      - InternalToken: []
+      x-internal: true
+      responses:
+        '200':
+          description: Información de venta
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  eventId:
+                    type: string
+                    format: uuid
+                  status:
+                    type: string
+                  purchasable:
+                    type: boolean
+                  startsAt:
+                    type: string
+                    format: date-time
+                  organizerId:
+                    type: string
+                    format: uuid
+                  sectors:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        sectorId:
+                          type: string
+                          format: uuid
+                        name:
+                          type: string
+                        type:
+                          type: string
+                        price:
+                          type: number
+                          format: double
+                        currency:
+                          type: string
+              example:
+                eventId: 9b2f6c1a-4d3e-4a7b-8c5d-2e1f0a9b8c7d
+                status: PUBLISHED
+                purchasable: true
+                startsAt: '2027-03-20T21:00:00-03:00'
+                organizerId: 3d4e5f60-8192-43a4-b5b0-2b3c4d5e6f78
+                sectors:
+                - sectorId: c3d4e5f6-1a2b-4c3d-8e4f-5a6b7c8d9e01
+                  name: Platea
+                  type: NUMBERED
+                  price: 45000.0
+                  currency: ARS
+                - sectorId: d4e5f6a7-2b3c-4d4e-9f5a-6b7c8d9e0f12
+                  name: Campo
+                  type: GENERAL
+                  price: 30000.0
+                  currency: ARS
+        '403':
+          description: Falta o es inválido X-Internal-Token
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/forbidden
+                title: Acceso denegado
+                status: 403
+                detail: X-Internal-Token ausente o inválido
+                code: FORBIDDEN
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+        '404':
+          description: Recurso inexistente
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/not-found
+                title: No encontrado
+                status: 404
+                detail: No existe el recurso solicitado
+                code: NOT_FOUND
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+  /internal/events/{eventId}/status:
+    put:
+      tags:
+      - Internos
+      summary: Actualizar estado SOLD_OUT/PUBLISHED (desde inventory)
+      description: 'Solo admite SOLD_OUT ↔ PUBLISHED.
+
+
+        **Roles:** INTERNAL'
+      operationId: put_internal_events_eventId_status
+      parameters:
+      - name: eventId
+        in: path
+        required: true
+        description: ID del evento
+        schema:
+          type: string
+          format: uuid
+        example: 9b2f6c1a-4d3e-4a7b-8c5d-2e1f0a9b8c7d
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+            example:
+              status: SOLD_OUT
+      security:
+      - InternalToken: []
+      x-internal: true
+      responses:
+        '200':
+          description: Estado actualizado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  eventId:
+                    type: string
+                    format: uuid
+                  status:
+                    type: string
+              example:
+                eventId: 9b2f6c1a-4d3e-4a7b-8c5d-2e1f0a9b8c7d
+                status: SOLD_OUT
+        '403':
+          description: Falta o es inválido X-Internal-Token
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/forbidden
+                title: Acceso denegado
+                status: 403
+                detail: X-Internal-Token ausente o inválido
+                code: FORBIDDEN
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+        '404':
+          description: Recurso inexistente
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/not-found
+                title: No encontrado
+                status: 404
+                detail: No existe el recurso solicitado
+                code: NOT_FOUND
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+        '409':
+          description: Transición de estado inválida
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/invalid-state-transition
+                title: Estado inválido
+                status: 409
+                detail: La operación no es válida en el estado actual
+                code: INVALID_STATE_TRANSITION
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+components:
+  securitySchemes:
+    UserId:
+      type: apiKey
+      in: header
+      name: X-User-Id
+      description: UUID del usuario (E1; en E2 se reemplaza por JWT Bearer)
+    UserRole:
+      type: apiKey
+      in: header
+      name: X-User-Role
+      description: CUSTOMER | ORGANIZER | ADMIN | ACCESS_STAFF
+    InternalToken:
+      type: apiKey
+      in: header
+      name: X-Internal-Token
+      description: Secreto compartido entre servicios
+  schemas:
+    ProblemDetail:
+      type: object
+      properties:
+        type:
+          type: string
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        code:
+          type: string
+          description: Código de negocio estable
+        correlationId:
+          type: string
+          format: uuid

@@ -1,0 +1,741 @@
+openapi: 3.0.3
+info:
+  title: inventory-service
+  version: 1.0.0
+  description: 'Disponibilidad, holds con TTL y garantía de no doble venta.
+
+
+    Errores en `application/problem+json`. Ver catálogo de códigos en docs/05-api-endpoints.md.'
+servers:
+- url: http://localhost:8082
+  description: Acceso directo al servicio (desarrollo)
+- url: http://localhost:8080
+  description: A través del API Gateway (solo /api/**)
+paths:
+  /api/events/{eventId}/availability:
+    get:
+      tags:
+      - Disponibilidad
+      summary: Disponibilidad actual del evento
+      description: 'Nunca se cachea: responde `Cache-Control: no-store`. Estados de asiento: AVAILABLE, HELD, SOLD.
+
+
+        **Roles:** PUBLIC'
+      operationId: get_api_events_eventId_availability
+      parameters:
+      - name: eventId
+        in: path
+        required: true
+        description: ID del evento
+        schema:
+          type: string
+          format: uuid
+        example: 9b2f6c1a-4d3e-4a7b-8c5d-2e1f0a9b8c7d
+      security:
+      - {}
+      - UserId: []
+        UserRole: []
+      responses:
+        '200':
+          description: Disponibilidad por sector
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  eventId:
+                    type: string
+                    format: uuid
+                  generatedAt:
+                    type: string
+                    format: date-time
+                  sectors:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        sectorId:
+                          type: string
+                          format: uuid
+                        name:
+                          type: string
+                        type:
+                          type: string
+                        capacity:
+                          type: integer
+                        available:
+                          type: integer
+                        seats:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              seatId:
+                                type: string
+                                format: uuid
+                              rowLabel:
+                                type: string
+                              number:
+                                type: integer
+                              status:
+                                type: string
+              example:
+                eventId: 9b2f6c1a-4d3e-4a7b-8c5d-2e1f0a9b8c7d
+                generatedAt: '2026-11-07T15:30:00-03:00'
+                sectors:
+                - sectorId: c3d4e5f6-1a2b-4c3d-8e4f-5a6b7c8d9e01
+                  name: Platea
+                  type: NUMBERED
+                  capacity: 40
+                  available: 38
+                  seats:
+                  - seatId: e5f6a7b8-3c4d-4e5f-a06b-7c8d9e0f1a23
+                    rowLabel: A
+                    number: 5
+                    status: AVAILABLE
+                  - seatId: e5f6a7b8-3c4d-4e5f-a06b-7c8d9e0f1a24
+                    rowLabel: A
+                    number: 6
+                    status: HELD
+                - sectorId: d4e5f6a7-2b3c-4d4e-9f5a-6b7c8d9e0f12
+                  name: Campo
+                  type: GENERAL
+                  capacity: 5000
+                  available: 4960
+        '404':
+          description: Recurso inexistente
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/not-found
+                title: No encontrado
+                status: 404
+                detail: No existe el recurso solicitado
+                code: NOT_FOUND
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+  /internal/events/{eventId}/inventory:
+    post:
+      tags:
+      - Internos
+      summary: Inicializar inventario (idempotente)
+      description: 'Llamado por catalog al publicar. Reinvocar no duplica asientos.
+
+
+        **Roles:** INTERNAL'
+      operationId: post_internal_events_eventId_inventory
+      parameters:
+      - name: eventId
+        in: path
+        required: true
+        description: ID del evento
+        schema:
+          type: string
+          format: uuid
+        example: 9b2f6c1a-4d3e-4a7b-8c5d-2e1f0a9b8c7d
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                sectors:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      sectorId:
+                        type: string
+                        format: uuid
+                      type:
+                        type: string
+                      rows:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            rowLabel:
+                              type: string
+                            seatCount:
+                              type: integer
+            example:
+              sectors:
+              - sectorId: c3d4e5f6-1a2b-4c3d-8e4f-5a6b7c8d9e01
+                type: NUMBERED
+                rows:
+                - rowLabel: A
+                  seatCount: 20
+                - rowLabel: B
+                  seatCount: 20
+              - sectorId: d4e5f6a7-2b3c-4d4e-9f5a-6b7c8d9e0f12
+                type: GENERAL
+                capacity: 5000
+      security:
+      - InternalToken: []
+      x-internal: true
+      responses:
+        '201':
+          description: Inventario creado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  eventId:
+                    type: string
+                    format: uuid
+                  seatsCreated:
+                    type: integer
+                  zonesCreated:
+                    type: integer
+              example:
+                eventId: 9b2f6c1a-4d3e-4a7b-8c5d-2e1f0a9b8c7d
+                seatsCreated: 40
+                zonesCreated: 1
+        '200':
+          description: Ya estaba inicializado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  eventId:
+                    type: string
+                    format: uuid
+                  seatsCreated:
+                    type: integer
+                  zonesCreated:
+                    type: integer
+              example:
+                eventId: 9b2f6c1a-4d3e-4a7b-8c5d-2e1f0a9b8c7d
+                seatsCreated: 0
+                zonesCreated: 0
+        '400':
+          description: Request inválido
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/validation-error
+                title: Solicitud inválida
+                status: 400
+                detail: El campo 'name' es obligatorio
+                code: VALIDATION_ERROR
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+        '403':
+          description: Falta o es inválido X-Internal-Token
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/forbidden
+                title: Acceso denegado
+                status: 403
+                detail: X-Internal-Token ausente o inválido
+                code: FORBIDDEN
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+  /internal/events/{eventId}/close:
+    post:
+      tags:
+      - Internos
+      summary: Cerrar inventario (no admite nuevos holds)
+      description: '**Roles:** INTERNAL'
+      operationId: post_internal_events_eventId_close
+      parameters:
+      - name: eventId
+        in: path
+        required: true
+        description: ID del evento
+        schema:
+          type: string
+          format: uuid
+        example: 9b2f6c1a-4d3e-4a7b-8c5d-2e1f0a9b8c7d
+      security:
+      - InternalToken: []
+      x-internal: true
+      responses:
+        '204':
+          description: Inventario cerrado (idempotente)
+        '403':
+          description: Falta o es inválido X-Internal-Token
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/forbidden
+                title: Acceso denegado
+                status: 403
+                detail: X-Internal-Token ausente o inválido
+                code: FORBIDDEN
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+        '404':
+          description: Recurso inexistente
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/not-found
+                title: No encontrado
+                status: 404
+                detail: No existe el recurso solicitado
+                code: NOT_FOUND
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+  /internal/holds:
+    post:
+      tags:
+      - Holds
+      summary: Crear hold (reserva temporal, todo-o-nada, idempotente por orderId)
+      description: 'Numerado: `seatIds`. General: `quantity`. Un mismo orderId devuelve el hold existente (200).
+
+
+        **Roles:** INTERNAL'
+      operationId: post_internal_holds
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                eventId:
+                  type: string
+                  format: uuid
+                orderId:
+                  type: string
+                  format: uuid
+                ttlSeconds:
+                  type: integer
+                items:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      sectorId:
+                        type: string
+                        format: uuid
+                      seatIds:
+                        type: array
+                        items:
+                          type: string
+                          format: uuid
+            example:
+              eventId: 9b2f6c1a-4d3e-4a7b-8c5d-2e1f0a9b8c7d
+              orderId: f6a7b8c9-4d5e-4f60-b17c-8d9e0f1a2b34
+              ttlSeconds: 600
+              items:
+              - sectorId: c3d4e5f6-1a2b-4c3d-8e4f-5a6b7c8d9e01
+                seatIds:
+                - e5f6a7b8-3c4d-4e5f-a06b-7c8d9e0f1a23
+                - e5f6a7b8-3c4d-4e5f-a06b-7c8d9e0f1a24
+              - sectorId: d4e5f6a7-2b3c-4d4e-9f5a-6b7c8d9e0f12
+                quantity: 2
+      security:
+      - InternalToken: []
+      x-internal: true
+      responses:
+        '201':
+          description: Hold creado. `seats` informa la etiqueta de cada asiento numerado retenido.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  holdId:
+                    type: string
+                    format: uuid
+                  orderId:
+                    type: string
+                    format: uuid
+                  status:
+                    type: string
+                  expiresAt:
+                    type: string
+                    format: date-time
+                  seats:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        seatId:
+                          type: string
+                          format: uuid
+                        sectorId:
+                          type: string
+                          format: uuid
+                        label:
+                          type: string
+              example:
+                holdId: 0a1b2c3d-5e6f-4071-828d-9e0f1a2b3c45
+                orderId: f6a7b8c9-4d5e-4f60-b17c-8d9e0f1a2b34
+                status: ACTIVE
+                expiresAt: '2026-11-07T15:40:00-03:00'
+                seats:
+                - seatId: e5f6a7b8-3c4d-4e5f-a06b-7c8d9e0f1a23
+                  sectorId: c3d4e5f6-1a2b-4c3d-8e4f-5a6b7c8d9e01
+                  label: A-5
+                - seatId: e5f6a7b8-3c4d-4e5f-a06b-7c8d9e0f1a24
+                  sectorId: c3d4e5f6-1a2b-4c3d-8e4f-5a6b7c8d9e01
+                  label: A-6
+        '200':
+          description: Hold ya existente para esa orden
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  holdId:
+                    type: string
+                    format: uuid
+                  orderId:
+                    type: string
+                    format: uuid
+                  status:
+                    type: string
+                  expiresAt:
+                    type: string
+                    format: date-time
+                  seats:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        seatId:
+                          type: string
+                          format: uuid
+                        sectorId:
+                          type: string
+                          format: uuid
+                        label:
+                          type: string
+              example:
+                holdId: 0a1b2c3d-5e6f-4071-828d-9e0f1a2b3c45
+                orderId: f6a7b8c9-4d5e-4f60-b17c-8d9e0f1a2b34
+                status: ACTIVE
+                expiresAt: '2026-11-07T15:40:00-03:00'
+                seats:
+                - seatId: e5f6a7b8-3c4d-4e5f-a06b-7c8d9e0f1a23
+                  sectorId: c3d4e5f6-1a2b-4c3d-8e4f-5a6b7c8d9e01
+                  label: A-5
+                - seatId: e5f6a7b8-3c4d-4e5f-a06b-7c8d9e0f1a24
+                  sectorId: c3d4e5f6-1a2b-4c3d-8e4f-5a6b7c8d9e01
+                  label: A-6
+        '400':
+          description: Request inválido
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/validation-error
+                title: Solicitud inválida
+                status: 400
+                detail: El campo 'name' es obligatorio
+                code: VALIDATION_ERROR
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+        '409':
+          description: Asiento ocupado / capacidad insuficiente / evento cerrado
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/seat-unavailable
+                title: Asiento no disponible
+                status: 409
+                detail: El asiento A-5 ya no está disponible
+                code: SEAT_UNAVAILABLE
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+        '403':
+          description: Falta o es inválido X-Internal-Token
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/forbidden
+                title: Acceso denegado
+                status: 403
+                detail: X-Internal-Token ausente o inválido
+                code: FORBIDDEN
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+        '404':
+          description: Recurso inexistente
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/not-found
+                title: No encontrado
+                status: 404
+                detail: No existe el recurso solicitado
+                code: NOT_FOUND
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+  /internal/holds/{holdId}/confirm:
+    post:
+      tags:
+      - Holds
+      summary: Confirmar venta del hold (idempotente)
+      description: '**Roles:** INTERNAL'
+      operationId: post_internal_holds_holdId_confirm
+      parameters:
+      - name: holdId
+        in: path
+        required: true
+        description: ID del hold
+        schema:
+          type: string
+          format: uuid
+        example: 0a1b2c3d-5e6f-4071-828d-9e0f1a2b3c45
+      security:
+      - InternalToken: []
+      x-internal: true
+      responses:
+        '200':
+          description: Venta confirmada (también si ya estaba confirmado)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  holdId:
+                    type: string
+                    format: uuid
+                  status:
+                    type: string
+              example:
+                holdId: 0a1b2c3d-5e6f-4071-828d-9e0f1a2b3c45
+                status: CONFIRMED
+        '410':
+          description: 'Hold vencido: los lugares se liberan'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/hold-expired
+                title: Reserva vencida
+                status: 410
+                detail: El hold venció a las 15:40
+                code: HOLD_EXPIRED
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+        '403':
+          description: Falta o es inválido X-Internal-Token
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/forbidden
+                title: Acceso denegado
+                status: 403
+                detail: X-Internal-Token ausente o inválido
+                code: FORBIDDEN
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+        '404':
+          description: Recurso inexistente
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/not-found
+                title: No encontrado
+                status: 404
+                detail: No existe el recurso solicitado
+                code: NOT_FOUND
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+  /internal/holds/{holdId}:
+    delete:
+      tags:
+      - Holds
+      summary: Liberar hold (idempotente)
+      description: '**Roles:** INTERNAL'
+      operationId: delete_internal_holds_holdId
+      parameters:
+      - name: holdId
+        in: path
+        required: true
+        description: ID del hold
+        schema:
+          type: string
+          format: uuid
+        example: 0a1b2c3d-5e6f-4071-828d-9e0f1a2b3c45
+      security:
+      - InternalToken: []
+      x-internal: true
+      responses:
+        '204':
+          description: Liberado (o ya estaba liberado/expirado)
+        '403':
+          description: Falta o es inválido X-Internal-Token
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/forbidden
+                title: Acceso denegado
+                status: 403
+                detail: X-Internal-Token ausente o inválido
+                code: FORBIDDEN
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+        '404':
+          description: Recurso inexistente
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/not-found
+                title: No encontrado
+                status: 404
+                detail: No existe el recurso solicitado
+                code: NOT_FOUND
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+  /internal/events/{eventId}/sold/release:
+    post:
+      tags:
+      - Holds
+      summary: Devolver lugares vendidos al stock (idempotente por releaseId)
+      description: '**Roles:** INTERNAL'
+      operationId: post_internal_events_eventId_sold_release
+      parameters:
+      - name: eventId
+        in: path
+        required: true
+        description: ID del evento
+        schema:
+          type: string
+          format: uuid
+        example: 9b2f6c1a-4d3e-4a7b-8c5d-2e1f0a9b8c7d
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                releaseId:
+                  type: string
+                  format: uuid
+                items:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      sectorId:
+                        type: string
+                        format: uuid
+                      seatIds:
+                        type: array
+                        items:
+                          type: string
+                          format: uuid
+            example:
+              releaseId: 5f607182-a3b4-45c6-97d2-4d5e6f708190
+              items:
+              - sectorId: c3d4e5f6-1a2b-4c3d-8e4f-5a6b7c8d9e01
+                seatIds:
+                - e5f6a7b8-3c4d-4e5f-a06b-7c8d9e0f1a23
+              - sectorId: d4e5f6a7-2b3c-4d4e-9f5a-6b7c8d9e0f12
+                quantity: 1
+      security:
+      - InternalToken: []
+      x-internal: true
+      responses:
+        '200':
+          description: Lugares liberados (o liberación ya aplicada)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  releaseId:
+                    type: string
+                    format: uuid
+                  released:
+                    type: integer
+              example:
+                releaseId: 5f607182-a3b4-45c6-97d2-4d5e6f708190
+                released: 2
+        '400':
+          description: Request inválido
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/validation-error
+                title: Solicitud inválida
+                status: 400
+                detail: El campo 'name' es obligatorio
+                code: VALIDATION_ERROR
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+        '403':
+          description: Falta o es inválido X-Internal-Token
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/forbidden
+                title: Acceso denegado
+                status: 403
+                detail: X-Internal-Token ausente o inválido
+                code: FORBIDDEN
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+        '404':
+          description: Recurso inexistente
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: https://ticketya.example/errors/not-found
+                title: No encontrado
+                status: 404
+                detail: No existe el recurso solicitado
+                code: NOT_FOUND
+                correlationId: b7d2c9e4-1f3a-4a5b-8c6d-7e8f9a0b1c2d
+components:
+  securitySchemes:
+    UserId:
+      type: apiKey
+      in: header
+      name: X-User-Id
+      description: UUID del usuario (E1; en E2 se reemplaza por JWT Bearer)
+    UserRole:
+      type: apiKey
+      in: header
+      name: X-User-Role
+      description: CUSTOMER | ORGANIZER | ADMIN | ACCESS_STAFF
+    InternalToken:
+      type: apiKey
+      in: header
+      name: X-Internal-Token
+      description: Secreto compartido entre servicios
+  schemas:
+    ProblemDetail:
+      type: object
+      properties:
+        type:
+          type: string
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        code:
+          type: string
+          description: Código de negocio estable
+        correlationId:
+          type: string
+          format: uuid

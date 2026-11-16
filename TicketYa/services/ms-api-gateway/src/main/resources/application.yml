@@ -1,0 +1,28 @@
+server.port: 8080
+spring:
+  application.name: api-gateway
+  jackson.serialization.write-dates-as-timestamps: false
+  cloud.gateway.server.webflux:          # (Spring Cloud 2025.0+; en versiones anteriores el prefijo es spring.cloud.gateway)
+    httpclient:
+      connect-timeout: 1000              # ms
+      response-timeout: 10s
+
+management:
+  endpoints.web.exposure.include: health
+  endpoint.health.probes.enabled: true
+
+gateway:
+  catalog-url:   ${CATALOG_URL:http://localhost:8081}
+  inventory-url: ${INVENTORY_URL:http://localhost:8082}
+  order-url:     ${ORDER_URL:http://localhost:8083}
+  ticket-url:    ${TICKET_URL:http://localhost:8085}
+  # payment-service NO se expone: solo lo invoca order-service.
+  cors:
+    allowed-origins: http://localhost:3000,http://localhost:5173
+
+springdoc:
+  api-docs.enabled: false                # el contrato público ya está escrito (static/openapi/ticketya-public-api.yaml)
+  swagger-ui:
+    enabled: true
+    path: /swagger-ui.html
+    url: /openapi/ticketya-public-api.yaml

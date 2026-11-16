@@ -1,0 +1,24 @@
+server:
+  port: 8085
+
+spring:
+  application:
+    name: ticket-service
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/ticket_db}
+    username: ${DB_USER:ticket}
+    password: ${DB_PASSWORD:ticket}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+
+ticketya:
+  clients:
+    catalog-url: ${CATALOG_URL:http://localhost:8081}

@@ -1,0 +1,2010 @@
+{
+  "info": {
+    "name": "TicketYa - Entrega 1",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Requests a través del API Gateway. La carpeta 00 encadena variables con scripts de test. Las demás sirven para pruebas sueltas con IDs de ejemplo."
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080"
+    },
+    {
+      "key": "adminId",
+      "value": "4e5f6071-92a3-44b5-86c1-3c4d5e6f7089"
+    },
+    {
+      "key": "organizerId",
+      "value": "3d4e5f60-8192-43a4-b5b0-2b3c4d5e6f78"
+    },
+    {
+      "key": "customerId",
+      "value": "2c3d4e5f-7081-4293-a4af-1a2b3c4d5e67"
+    },
+    {
+      "key": "customer2Id",
+      "value": "8192a3b4-c5d6-47e8-a9f0-7081920314ab"
+    }
+  ],
+  "item": [
+    {
+      "name": "00 - Flujo de compra completo (ejecutar en orden)",
+      "item": [
+        {
+          "name": "1. Crear lugar (ADMIN)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{adminId}}"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "ADMIN"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/venues",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "venues"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Estadio Municipal\",\n  \"address\": \"Av. España 1200\",\n  \"city\": \"Tandil\",\n  \"latitude\": -37.3217,\n  \"longitude\": -59.1332\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201', function () { pm.response.to.have.status(201); });",
+                  "const j = pm.response.json();",
+                  "pm.collectionVariables.set('venueId', j.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "2. Agregar sector numerado 'Platea'",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{adminId}}"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "ADMIN"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/venues/{{venueId}}/sectors",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "venues",
+                "{{venueId}}",
+                "sectors"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Platea\",\n  \"type\": \"NUMBERED\",\n  \"rows\": [\n    {\n      \"rowLabel\": \"A\",\n      \"seatCount\": 20\n    },\n    {\n      \"rowLabel\": \"B\",\n      \"seatCount\": 20\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201', function () { pm.response.to.have.status(201); });",
+                  "const j = pm.response.json();",
+                  "pm.collectionVariables.set('sectorNumId', j.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "3. Agregar sector general 'Campo'",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{adminId}}"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "ADMIN"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/venues/{{venueId}}/sectors",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "venues",
+                "{{venueId}}",
+                "sectors"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Campo\",\n  \"type\": \"GENERAL\",\n  \"capacity\": 5000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201', function () { pm.response.to.have.status(201); });",
+                  "const j = pm.response.json();",
+                  "pm.collectionVariables.set('sectorGenId', j.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "4. Crear evento en borrador (ORGANIZER)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{organizerId}}"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "ORGANIZER"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/events",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "events"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Divididos en Tandil\",\n  \"description\": \"Gira 2027\",\n  \"type\": \"CONCERT\",\n  \"venueId\": \"{{venueId}}\",\n  \"startsAt\": \"2027-03-20T21:00:00-03:00\",\n  \"participants\": [\n    {\n      \"name\": \"Divididos\",\n      \"role\": \"ARTIST\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201', function () { pm.response.to.have.status(201); });",
+                  "const j = pm.response.json();",
+                  "pm.expect(j.status).to.eql('DRAFT');",
+                  "pm.collectionVariables.set('eventId', j.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "5. Definir precios por sector",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{organizerId}}"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "ORGANIZER"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/events/{{eventId}}/sector-prices",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "events",
+                "{{eventId}}",
+                "sector-prices"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"prices\": [\n    {\n      \"sectorId\": \"{{sectorNumId}}\",\n      \"price\": 45000.0,\n      \"currency\": \"ARS\"\n    },\n    {\n      \"sectorId\": \"{{sectorGenId}}\",\n      \"price\": 30000.0,\n      \"currency\": \"ARS\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "6. Publicar evento",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{organizerId}}"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "ORGANIZER"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/events/{{eventId}}/publish",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "events",
+                "{{eventId}}",
+                "publish"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function () { pm.response.to.have.status(200); });",
+                  "const j = pm.response.json();",
+                  "pm.expect(j.status).to.eql('PUBLISHED');"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "7. Buscar evento (público)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/events?participant=Divididos&city=Tandil&sort=date",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "events"
+              ],
+              "query": [
+                {
+                  "key": "participant",
+                  "value": "Divididos"
+                },
+                {
+                  "key": "city",
+                  "value": "Tandil"
+                },
+                {
+                  "key": "sort",
+                  "value": "date"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function () { pm.response.to.have.status(200); });",
+                  "const j = pm.response.json();",
+                  "pm.expect(j.totalElements).to.be.above(0);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "8. Ver disponibilidad (público)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/events/{{eventId}}/availability",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "events",
+                "{{eventId}}",
+                "availability"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function () { pm.response.to.have.status(200); });",
+                  "const j = pm.response.json();",
+                  "const p = j.sectors.find(s => s.type === 'NUMBERED');",
+                  "const free = p.seats.filter(s => s.status === 'AVAILABLE');",
+                  "pm.collectionVariables.set('seatId1', free[0].seatId);",
+                  "pm.collectionVariables.set('seatId2', free[1].seatId);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "9. Crear orden con 2 asientos (CUSTOMER)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{customerId}}"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "CUSTOMER"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{orderKey}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/orders",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "orders"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"eventId\": \"{{eventId}}\",\n  \"items\": [\n    {\n      \"sectorId\": \"{{sectorNumId}}\",\n      \"seatIds\": [\n        \"{{seatId1}}\",\n        \"{{seatId2}}\"\n      ]\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set('orderKey', pm.variables.replaceIn('{{$guid}}'));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201', function () { pm.response.to.have.status(201); });",
+                  "const j = pm.response.json();",
+                  "pm.expect(j.status).to.eql('PENDING_PAYMENT');",
+                  "pm.collectionVariables.set('orderId', j.orderId);",
+                  "pm.collectionVariables.set('itemId1', j.items[0].itemId);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "10. Reintento idempotente de la misma orden",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{customerId}}"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "CUSTOMER"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{orderKey}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/orders",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "orders"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"eventId\": \"{{eventId}}\",\n  \"items\": [\n    {\n      \"sectorId\": \"{{sectorNumId}}\",\n      \"seatIds\": [\n        \"{{seatId1}}\",\n        \"{{seatId2}}\"\n      ]\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function () { pm.response.to.have.status(200); });",
+                  "const j = pm.response.json();",
+                  "pm.expect(j.orderId).to.eql(pm.collectionVariables.get('orderId'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "11. Otro cliente intenta el mismo asiento (debe fallar)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{customer2Id}}"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "CUSTOMER"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{otherKey}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/orders",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "orders"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"eventId\": \"{{eventId}}\",\n  \"items\": [\n    {\n      \"sectorId\": \"{{sectorNumId}}\",\n      \"seatIds\": [\n        \"{{seatId1}}\"\n      ]\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set('otherKey', pm.variables.replaceIn('{{$guid}}'));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 409', function () { pm.response.to.have.status(409); });",
+                  "const j = pm.response.json();",
+                  "pm.expect(j.code).to.eql('SEAT_UNAVAILABLE');"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "12. Pagar la orden con tarjeta aprobada",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{customerId}}"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "CUSTOMER"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{payKey}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/orders/{{orderId}}/pay",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "orders",
+                "{{orderId}}",
+                "pay"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"method\": \"CARD\",\n  \"token\": \"tok_approved\",\n  \"last4\": \"4242\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set('payKey', pm.variables.replaceIn('{{$guid}}'));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function () { pm.response.to.have.status(200); });",
+                  "const j = pm.response.json();",
+                  "pm.expect(j.status).to.eql('CONFIRMED');",
+                  "pm.expect(j.tickets.length).to.eql(2);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "13. Reintento idempotente del pago (sin doble cobro)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{customerId}}"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "CUSTOMER"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{payKey}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/orders/{{orderId}}/pay",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "orders",
+                "{{orderId}}",
+                "pay"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"method\": \"CARD\",\n  \"token\": \"tok_approved\",\n  \"last4\": \"4242\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function () { pm.response.to.have.status(200); });",
+                  "const j = pm.response.json();",
+                  "pm.expect(j.tickets.length).to.eql(2);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "14. Ver mis entradas con QR",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{customerId}}"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "CUSTOMER"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/tickets?eventId={{eventId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "tickets"
+              ],
+              "query": [
+                {
+                  "key": "eventId",
+                  "value": "{{eventId}}"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function () { pm.response.to.have.status(200); });",
+                  "const j = pm.response.json();",
+                  "pm.expect(j.content[0].qrCode).to.be.a('string');"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "15. Solicitar devolución de una entrada",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{customerId}}"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "CUSTOMER"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/orders/{{orderId}}/items/{{itemId1}}/refund-requests",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "orders",
+                "{{orderId}}",
+                "items",
+                "{{itemId1}}",
+                "refund-requests"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"No puedo asistir\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201', function () { pm.response.to.have.status(201); });",
+                  "const j = pm.response.json();",
+                  "pm.collectionVariables.set('refundRequestId', j.refundRequestId);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "16. Admin lista solicitudes pendientes",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{adminId}}"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "ADMIN"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/refund-requests?status=PENDING",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "refund-requests"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "PENDING"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "17. Admin aprueba la devolución",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{adminId}}"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "ADMIN"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/refund-requests/{{refundRequestId}}/approve",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "refund-requests",
+                "{{refundRequestId}}",
+                "approve"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "18. El asiento devuelto vuelve a estar disponible",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/events/{{eventId}}/availability",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "events",
+                "{{eventId}}",
+                "availability"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function () { pm.response.to.have.status(200); });",
+                  "const j = pm.response.json();",
+                  "const p = j.sectors.find(s => s.type === 'NUMBERED');",
+                  "const s = p.seats.find(x => x.seatId === pm.collectionVariables.get('seatId1'));",
+                  "pm.test('Asiento liberado (puede demorar si el reintento es asíncrono)', function () { pm.expect(['AVAILABLE','SOLD']).to.include(s.status); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "19. Orden en zona general (Campo)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{customerId}}"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "CUSTOMER"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{rejKey}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/orders",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "orders"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"eventId\": \"{{eventId}}\",\n  \"items\": [\n    {\n      \"sectorId\": \"{{sectorGenId}}\",\n      \"quantity\": 1\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set('rejKey', pm.variables.replaceIn('{{$guid}}'));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201', function () { pm.response.to.have.status(201); });",
+                  "const j = pm.response.json();",
+                  "pm.collectionVariables.set('orderId2', j.orderId);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "20. Pago rechazado (libera la reserva)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{customerId}}"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "CUSTOMER"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{rejPayKey}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/orders/{{orderId2}}/pay",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "orders",
+                "{{orderId2}}",
+                "pay"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"method\": \"CARD\",\n  \"token\": \"tok_rejected\",\n  \"last4\": \"0002\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set('rejPayKey', pm.variables.replaceIn('{{$guid}}'));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 402', function () { pm.response.to.have.status(402); });",
+                  "const j = pm.response.json();",
+                  "pm.expect(j.code).to.eql('PAYMENT_REJECTED');"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "21. Admin cancela el evento (dispara reintegros)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{adminId}}"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "ADMIN"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/events/{{eventId}}/cancel",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "events",
+                "{{eventId}}",
+                "cancel"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Cancelado por el organizador\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function () { pm.response.to.have.status(200); });",
+                  "const j = pm.response.json();",
+                  "pm.expect(j.status).to.eql('CANCELLED');"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "catalog-service",
+      "item": [
+        {
+          "name": "POST /api/venues — Crear lugar",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{adminId}}"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "ADMIN"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/venues",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "venues"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Estadio Municipal\",\n  \"address\": \"Av. España 1200\",\n  \"city\": \"Tandil\",\n  \"latitude\": -37.3217,\n  \"longitude\": -59.1332\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "GET /api/venues/{venueId} — Consultar lugar con sectores",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/venues/5a8e1d2c-7b3f-4c9a-a1e6-0d4b7c2f9e10",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "venues",
+                "5a8e1d2c-7b3f-4c9a-a1e6-0d4b7c2f9e10"
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST /api/venues/{venueId}/sectors — Agregar sector a un lugar",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{adminId}}"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "ADMIN"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/venues/5a8e1d2c-7b3f-4c9a-a1e6-0d4b7c2f9e10/sectors",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "venues",
+                "5a8e1d2c-7b3f-4c9a-a1e6-0d4b7c2f9e10",
+                "sectors"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Platea\",\n  \"type\": \"NUMBERED\",\n  \"rows\": [\n    {\n      \"rowLabel\": \"A\",\n      \"seatCount\": 20\n    },\n    {\n      \"rowLabel\": \"B\",\n      \"seatCount\": 20\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST /api/events — Crear evento (borrador)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{organizerId}}"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "ORGANIZER"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/events",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "events"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Divididos en Tandil\",\n  \"description\": \"Gira 2027\",\n  \"type\": \"CONCERT\",\n  \"venueId\": \"5a8e1d2c-7b3f-4c9a-a1e6-0d4b7c2f9e10\",\n  \"startsAt\": \"2027-03-20T21:00:00-03:00\",\n  \"participants\": [\n    {\n      \"name\": \"Divididos\",\n      \"role\": \"ARTIST\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "GET /api/events/mine — Listar mis eventos (incluye borradores)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{organizerId}}"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "ORGANIZER"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/events/mine?status=DRAFT&page=0&size=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "events",
+                "mine"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "DRAFT"
+                },
+                {
+                  "key": "page",
+                  "value": "0"
+                },
+                {
+                  "key": "size",
+                  "value": "20"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /api/events/{eventId} — Detalle de evento",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/events/9b2f6c1a-4d3e-4a7b-8c5d-2e1f0a9b8c7d",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "events",
+                "9b2f6c1a-4d3e-4a7b-8c5d-2e1f0a9b8c7d"
+              ]
+            }
+          }
+        },
+        {
+          "name": "PUT /api/events/{eventId} — Modificar evento en borrador",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{organizerId}}"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "ORGANIZER"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/events/9b2f6c1a-4d3e-4a7b-8c5d-2e1f0a9b8c7d",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "events",
+                "9b2f6c1a-4d3e-4a7b-8c5d-2e1f0a9b8c7d"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Divididos en Tandil - Fecha 1\",\n  \"description\": \"Gira 2027\",\n  \"type\": \"CONCERT\",\n  \"venueId\": \"5a8e1d2c-7b3f-4c9a-a1e6-0d4b7c2f9e10\",\n  \"startsAt\": \"2027-03-20T21:00:00-03:00\",\n  \"participants\": [\n    {\n      \"name\": \"Divididos\",\n      \"role\": \"ARTIST\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "PUT /api/events/{eventId}/sector-prices — Definir precios por sector",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{organizerId}}"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "ORGANIZER"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/events/9b2f6c1a-4d3e-4a7b-8c5d-2e1f0a9b8c7d/sector-prices",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "events",
+                "9b2f6c1a-4d3e-4a7b-8c5d-2e1f0a9b8c7d",
+                "sector-prices"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"prices\": [\n    {\n      \"sectorId\": \"c3d4e5f6-1a2b-4c3d-8e4f-5a6b7c8d9e01\",\n      \"price\": 45000.0,\n      \"currency\": \"ARS\"\n    },\n    {\n      \"sectorId\": \"d4e5f6a7-2b3c-4d4e-9f5a-6b7c8d9e0f12\",\n      \"price\": 30000.0,\n      \"currency\": \"ARS\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST /api/events/{eventId}/publish — Publicar evento",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{organizerId}}"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "ORGANIZER"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/events/9b2f6c1a-4d3e-4a7b-8c5d-2e1f0a9b8c7d/publish",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "events",
+                "9b2f6c1a-4d3e-4a7b-8c5d-2e1f0a9b8c7d",
+                "publish"
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST /api/events/{eventId}/suspend — Suspender evento",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{adminId}}"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "ADMIN"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/events/9b2f6c1a-4d3e-4a7b-8c5d-2e1f0a9b8c7d/suspend",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "events",
+                "9b2f6c1a-4d3e-4a7b-8c5d-2e1f0a9b8c7d",
+                "suspend"
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST /api/events/{eventId}/resume — Reactivar evento",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{adminId}}"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "ADMIN"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/events/9b2f6c1a-4d3e-4a7b-8c5d-2e1f0a9b8c7d/resume",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "events",
+                "9b2f6c1a-4d3e-4a7b-8c5d-2e1f0a9b8c7d",
+                "resume"
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST /api/events/{eventId}/cancel — Cancelar evento",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{adminId}}"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "ADMIN"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/events/9b2f6c1a-4d3e-4a7b-8c5d-2e1f0a9b8c7d/cancel",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "events",
+                "9b2f6c1a-4d3e-4a7b-8c5d-2e1f0a9b8c7d",
+                "cancel"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Motivo de la cancelación (opcional)\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "GET /api/events — Buscar eventos",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/events",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "events"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "inventory-service",
+      "item": [
+        {
+          "name": "GET /api/events/{eventId}/availability — Disponibilidad actual del evento",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/events/9b2f6c1a-4d3e-4a7b-8c5d-2e1f0a9b8c7d/availability",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "events",
+                "9b2f6c1a-4d3e-4a7b-8c5d-2e1f0a9b8c7d",
+                "availability"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "order-service",
+      "item": [
+        {
+          "name": "POST /api/orders — Crear orden y reservar lugares (paso 1 de la compra)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{customerId}}"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "CUSTOMER"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "c1f4a7d2-9e3b-4a68-b5c1-2d7e8f90a1b3"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/orders",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "orders"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"eventId\": \"9b2f6c1a-4d3e-4a7b-8c5d-2e1f0a9b8c7d\",\n  \"items\": [\n    {\n      \"sectorId\": \"c3d4e5f6-1a2b-4c3d-8e4f-5a6b7c8d9e01\",\n      \"seatIds\": [\n        \"e5f6a7b8-3c4d-4e5f-a06b-7c8d9e0f1a23\",\n        \"e5f6a7b8-3c4d-4e5f-a06b-7c8d9e0f1a24\"\n      ]\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST /api/orders/{orderId}/pay — Pagar la orden (paso 2 de la compra)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{customerId}}"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "CUSTOMER"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "c1f4a7d2-9e3b-4a68-b5c1-2d7e8f90a1b3"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/orders/f6a7b8c9-4d5e-4f60-b17c-8d9e0f1a2b34/pay",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "orders",
+                "f6a7b8c9-4d5e-4f60-b17c-8d9e0f1a2b34",
+                "pay"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"method\": \"CARD\",\n  \"token\": \"tok_approved\",\n  \"last4\": \"4242\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "DELETE /api/orders/{orderId} — Cancelar orden pendiente",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{customerId}}"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "CUSTOMER"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/orders/f6a7b8c9-4d5e-4f60-b17c-8d9e0f1a2b34",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "orders",
+                "f6a7b8c9-4d5e-4f60-b17c-8d9e0f1a2b34"
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /api/orders — Listar mis órdenes",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{customerId}}"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "CUSTOMER"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/orders?status=CONFIRMED&page=0&size=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "orders"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "CONFIRMED"
+                },
+                {
+                  "key": "page",
+                  "value": "0"
+                },
+                {
+                  "key": "size",
+                  "value": "20"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /api/orders/{orderId} — Detalle de una orden",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{customerId}}"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "CUSTOMER"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/orders/f6a7b8c9-4d5e-4f60-b17c-8d9e0f1a2b34",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "orders",
+                "f6a7b8c9-4d5e-4f60-b17c-8d9e0f1a2b34"
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST /api/orders/{orderId}/items/{itemId}/refund-requests — Solicitar devolución de una entrada",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{customerId}}"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "CUSTOMER"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/orders/f6a7b8c9-4d5e-4f60-b17c-8d9e0f1a2b34/items/a7b8c9d0-5e6f-4071-828d-9e0f1a2b3c01/refund-requests",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "orders",
+                "f6a7b8c9-4d5e-4f60-b17c-8d9e0f1a2b34",
+                "items",
+                "a7b8c9d0-5e6f-4071-828d-9e0f1a2b3c01",
+                "refund-requests"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"No puedo asistir\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "GET /api/refund-requests/mine — Listar mis solicitudes de devolución",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{customerId}}"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "CUSTOMER"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/refund-requests/mine",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "refund-requests",
+                "mine"
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /api/refund-requests — Listar solicitudes de devolución (backoffice)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{adminId}}"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "ADMIN"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/refund-requests?status=PENDING&page=0&size=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "refund-requests"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "PENDING"
+                },
+                {
+                  "key": "page",
+                  "value": "0"
+                },
+                {
+                  "key": "size",
+                  "value": "20"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST /api/refund-requests/{refundRequestId}/approve — Aprobar devolución",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{adminId}}"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "ADMIN"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/refund-requests/5f607182-a3b4-45c6-97d2-4d5e6f708190/approve",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "refund-requests",
+                "5f607182-a3b4-45c6-97d2-4d5e6f708190",
+                "approve"
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST /api/refund-requests/{refundRequestId}/reject — Rechazar devolución",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{adminId}}"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "ADMIN"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/refund-requests/5f607182-a3b4-45c6-97d2-4d5e6f708190/reject",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "refund-requests",
+                "5f607182-a3b4-45c6-97d2-4d5e6f708190",
+                "reject"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Fuera de política\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "ticket-service",
+      "item": [
+        {
+          "name": "GET /api/tickets — Listar mis entradas",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{customerId}}"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "CUSTOMER"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/tickets",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "tickets"
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /api/tickets/{ticketId} — Detalle de una entrada",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{customerId}}"
+              },
+              {
+                "key": "X-User-Role",
+                "value": "CUSTOMER"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/tickets/6a708192-b3c4-46d7-a8e3-5e6f70819201",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "tickets",
+                "6a708192-b3c4-46d7-a8e3-5e6f70819201"
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,153 @@
+# Toda la aplicación con un solo comando:  docker compose up --build -d
+name: ticketya
+
+# --- Plantillas reutilizadas por los servicios ---------------------------------------------------------
+x-service: &service
+  restart: unless-stopped
+  init: true
+  networks: [ticketya]
+  depends_on:
+    postgres: { condition: service_healthy }
+
+x-healthcheck: &healthcheck
+  interval: 10s
+  timeout: 5s
+  retries: 30
+  start_period: 60s
+
+x-token: &internal-token
+  INTERNAL_TOKEN: ${INTERNAL_TOKEN:-dev-internal-token}
+
+# --- Servicios -----------------------------------------------------------------------------------------
+# Cada microservicio tiene su propia base y solo conoce a los demás por URL (sin código compartido
+# salvo el starter técnico). Las URLs usan los nombres DNS de la red de Compose.
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: ticketya-postgres
+    restart: unless-stopped
+    networks: [ticketya]
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    ports: ["${POSTGRES_PORT:-5432}:5432"]
+    volumes:
+      - ticketya-pgdata:/var/lib/postgresql/data
+      - ./infra/postgres/init-databases.sql:/docker-entrypoint-initdb.d/01-init-databases.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  catalog-service:
+    <<: *service
+    build: { context: ., dockerfile: infra/docker/Dockerfile, args: { SERVICE: ms-catalog-service } }
+    image: ticketya/catalog-service:local
+    container_name: ticketya-catalog
+    environment:
+      <<: *internal-token
+      DB_URL: jdbc:postgresql://postgres:5432/catalog_db
+      DB_USER: catalog
+      DB_PASSWORD: catalog
+      INVENTORY_URL: http://inventory-service:8082
+      ORDER_URL: http://order-service:8083
+    ports: ["8081:8081"]
+    healthcheck:
+      <<: *healthcheck
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8081/v3/api-docs >/dev/null || exit 1"]
+
+  inventory-service:
+    <<: *service
+    build: { context: ., dockerfile: infra/docker/Dockerfile, args: { SERVICE: ms-inventory-service } }
+    image: ticketya/inventory-service:local
+    container_name: ticketya-inventory
+    environment:
+      <<: *internal-token
+      DB_URL: jdbc:postgresql://postgres:5432/inventory_db
+      DB_USER: inventory
+      DB_PASSWORD: inventory
+      CATALOG_URL: http://catalog-service:8081
+    ports: ["8082:8082"]
+    healthcheck:
+      <<: *healthcheck
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8082/v3/api-docs >/dev/null || exit 1"]
+
+  order-service:
+    <<: *service
+    build: { context: ., dockerfile: infra/docker/Dockerfile, args: { SERVICE: ms-order-service } }
+    image: ticketya/order-service:local
+    container_name: ticketya-order
+    environment:
+      <<: *internal-token
+      DB_URL: jdbc:postgresql://postgres:5432/order_db
+      DB_USER: orders
+      DB_PASSWORD: orders
+      CATALOG_URL: http://catalog-service:8081
+      INVENTORY_URL: http://inventory-service:8082
+      PAYMENT_URL: http://payment-service:8084
+      TICKET_URL: http://ticket-service:8085
+    ports: ["8083:8083"]
+    healthcheck:
+      <<: *healthcheck
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8083/v3/api-docs >/dev/null || exit 1"]
+
+  payment-service:
+    <<: *service
+    build: { context: ., dockerfile: infra/docker/Dockerfile, args: { SERVICE: ms-payment-service } }
+    image: ticketya/payment-service:local
+    container_name: ticketya-payment
+    environment:
+      <<: *internal-token
+      DB_URL: jdbc:postgresql://postgres:5432/payment_db
+      DB_USER: payment
+      DB_PASSWORD: payment
+    ports: ["8084:8084"]
+    healthcheck:
+      <<: *healthcheck
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8084/v3/api-docs >/dev/null || exit 1"]
+
+  ticket-service:
+    <<: *service
+    build: { context: ., dockerfile: infra/docker/Dockerfile, args: { SERVICE: ms-ticket-service } }
+    image: ticketya/ticket-service:local
+    container_name: ticketya-ticket
+    environment:
+      <<: *internal-token
+      DB_URL: jdbc:postgresql://postgres:5432/ticket_db
+      DB_USER: ticket
+      DB_PASSWORD: ticket
+      CATALOG_URL: http://catalog-service:8081
+    ports: ["8085:8085"]
+    healthcheck:
+      <<: *healthcheck
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8085/v3/api-docs >/dev/null || exit 1"]
+
+  api-gateway:
+    <<: *service
+    build: { context: ., dockerfile: infra/docker/Dockerfile, args: { SERVICE: ms-api-gateway } }
+    image: ticketya/api-gateway:local
+    container_name: ticketya-gateway
+    environment:
+      CATALOG_URL: http://catalog-service:8081
+      INVENTORY_URL: http://inventory-service:8082
+      ORDER_URL: http://order-service:8083
+      TICKET_URL: http://ticket-service:8085
+    # El gateway no usa base de datos: espera a que los servicios de negocio estén sanos.
+    depends_on:
+      catalog-service: { condition: service_healthy }
+      inventory-service: { condition: service_healthy }
+      order-service: { condition: service_healthy }
+      payment-service: { condition: service_healthy }
+      ticket-service: { condition: service_healthy }
+    ports: ["8080:8080"]
+    healthcheck:
+      <<: *healthcheck
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8080/actuator/health >/dev/null || exit 1"]
+      start_period: 30s
+
+volumes:
+  ticketya-pgdata:
+
+networks:
+  ticketya:
